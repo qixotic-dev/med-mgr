@@ -390,7 +390,7 @@
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
 const CLIENT_ID    = '972705955264-1r2bivpb0ece9bvvs8vbe0tuklru9761.apps.googleusercontent.com';
-const SCOPES       = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
+const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar.events';
 const FILENAME     = 'richard_medication_orders.json';
 const TZ           = 'America/New_York';
 
@@ -495,28 +495,40 @@ async function driveRequest(url, opts={}) {
 }
 
 async function findOrCreateFile() {
-  const q = encodeURIComponent(`name='${FILENAME}' and mimeType='application/json' and trashed=false`);
-  const list = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`);
+  // Search for existing file
+  const q = encodeURIComponent(`name='${FILENAME}' and trashed=false`);
+  const list = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+
   if (list.files && list.files.length > 0) {
     driveFileId = list.files[0].id;
-    // Load content
-    const content = await driveRequest(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
-    medData = content || {};
-  } else {
-    // Create new file
-    const boundary = 'med_boundary_xyz';
-    const meta = { name: FILENAME, mimeType: 'application/json' };
-    const body = [
-      `--${boundary}`, 'Content-Type: application/json', '',
-      JSON.stringify(meta),
-      `--${boundary}`, 'Content-Type: application/json', '',
-      JSON.stringify({}),
-      `--${boundary}--`
-    ].join('\r\n');
-    const created = await driveRequest(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
-      { method:'POST', headers:{'Content-Type':`multipart/related; boundary=${boundary}`}, body }
+    // Fetch raw file content (alt=media returns raw bytes, not JSON envelope)
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
     );
+    if (!res.ok) throw new Error(`Could not read file: ${res.status}`);
+    const text = await res.text();
+    try { medData = text ? JSON.parse(text) : {}; }
+    catch(_) { medData = {}; }
+  } else {
+    // Create new empty file using simple upload
+    const meta = JSON.stringify({ name: FILENAME, mimeType: 'application/json' });
+    const content = JSON.stringify({});
+    const boundary = 'rxmgr_001';
+    const body = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
+    const res = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body
+      }
+    );
+    if (!res.ok) throw new Error(`Could not create file: ${res.status}`);
+    const created = await res.json();
     driveFileId = created.id;
     medData = {};
   }
@@ -722,7 +734,7 @@ $('sign-in-btn').addEventListener('click', async () => {
     $('auth-screen').style.display = 'none';
     $('app').classList.add('visible');
     $('header-sub').textContent = 'Loading data…';
-    await findOrCreateFile();
+    try { await Promise.race([findOrCreateFile(), new Promise((_,r)=>setTimeout(()=>r(new Error("Timeout")),15000))]); } catch(e) { showToast("Drive error: "+e.message, "error"); $("header-sub").textContent = "Drive unavailable — working offline"; }
     renderCatFilter();
     renderMedList();
   } catch(e) {
