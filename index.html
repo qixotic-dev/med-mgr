@@ -232,6 +232,11 @@
   .form-field { display: flex; flex-direction: column; gap: 5px; }
   .form-field.full { grid-column: 1 / -1; }
   .form-field label { font-size: 11px; font-weight: 600; color: var(--text-sub); }
+  .form-field label .req { color: var(--red); margin-left: 2px; }
+  .btn-primary:disabled {
+    background: var(--border); color: var(--text-muted); cursor: not-allowed;
+    transform: none; box-shadow: none; opacity: 0.7;
+  }
   .form-field input, .form-field textarea, .form-field select {
     padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px;
     font-family: var(--font-body); font-size: 13px; color: var(--text);
@@ -360,12 +365,12 @@
           <h3>Source / Pharmacy</h3>
           <div class="form-grid">
             <div class="form-field full">
-              <label>Pharmacy / Source Name</label>
-              <input type="text" id="f-source" placeholder="e.g. CVS, mail-order specialty pharmacy">
+              <label>Pharmacy / Source Name <span class="req">*</span></label>
+              <input type="text" id="f-source" placeholder="e.g. CVS, mail-order specialty pharmacy" oninput="validateForm()">
             </div>
             <div class="form-field">
-              <label>Phone</label>
-              <input type="tel" id="f-source-phone" placeholder="(555) 555-5555">
+              <label>Phone <span class="req">*</span></label>
+              <input type="tel" id="f-source-phone" placeholder="(555) 555-5555" oninput="validateForm()">
             </div>
             <div class="form-field">
               <label>Address / Notes</label>
@@ -378,12 +383,12 @@
           <h3>Prescriber</h3>
           <div class="form-grid">
             <div class="form-field">
-              <label>Prescriber Name</label>
-              <input type="text" id="f-prescriber" placeholder="Dr. Smith">
+              <label>Prescriber Name <span class="req">*</span></label>
+              <input type="text" id="f-prescriber" placeholder="Dr. Smith" oninput="validateForm()">
             </div>
             <div class="form-field">
-              <label>Prescriber Phone</label>
-              <input type="tel" id="f-prescriber-phone" placeholder="(555) 555-5555">
+              <label>Prescriber Phone <span class="req">*</span></label>
+              <input type="tel" id="f-prescriber-phone" placeholder="(555) 555-5555" oninput="validateForm()">
             </div>
           </div>
         </div>
@@ -417,7 +422,7 @@
         </div>
 
         <div class="action-row">
-          <button class="btn-primary" onclick="saveCurrentMed()">💾 Save to Drive</button>
+          <button class="btn-primary" id="btn-save" onclick="saveCurrentMed()" disabled>💾 Save to Drive</button>
           <button class="btn-secondary" onclick="clearForm()">Reset</button>
           <button class="btn-cal" onclick="scheduleReminder()">📅 Add to Calendar</button>
         </div>
@@ -653,6 +658,7 @@ function selectMed(id) {
   document.getElementById('empty-state').classList.remove('visible');
   document.getElementById('detail-header').classList.add('visible');
   document.getElementById('detail-body').classList.add('visible');
+  validateForm();
 }
 
 function showEmpty() {
@@ -662,10 +668,17 @@ function showEmpty() {
   document.getElementById('detail-body').classList.remove('visible');
 }
 
+function validateForm() {
+  const ok = ['f-source','f-source-phone','f-prescriber','f-prescriber-phone']
+    .every(id => document.getElementById(id).value.trim() !== '');
+  document.getElementById('btn-save').disabled = !ok;
+}
+
 function clearForm() {
   ['f-source','f-source-phone','f-source-addr','f-prescriber','f-prescriber-phone','f-how','f-last-order','f-next-order','f-schedule-notes'].forEach(id => {
     document.getElementById(id).value = '';
   });
+  validateForm();
 }
 
 async function saveCurrentMed() {
