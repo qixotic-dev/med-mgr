@@ -156,6 +156,11 @@
     padding: 1px 6px; border-radius: 10px; font-weight: 600;
   }
   .tree-group.open .tree-group-count { display: none; }
+  .tree-alert-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  }
+  .tree-alert-dot.due  { background: var(--red); }
+  .tree-alert-dot.soon { background: #d97706; }
 
   /* Tree items */
   .tree-items { display: none; padding-left: 10px; }
@@ -173,7 +178,7 @@
   }
   [data-theme="dark"] .med-item.active { border-color: rgba(37,99,235,0.4); border-left-color: var(--blue); }
   .med-item-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
-  .med-item-dose { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+  .med-item-dose { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; opacity: 0.65; }
   .med-item-status { font-size: 10px; margin-top: 3px; font-weight: 500; }
   .status-ok { color: var(--green); }
   .status-soon { color: #d97706; }
@@ -427,11 +432,11 @@
           <div class="form-grid">
             <div class="form-field">
               <label>Last Order Date</label>
-              <input type="date" id="f-last-order">
+              <input type="text" id="f-last-order" placeholder="e.g. Jan 15, 2026">
             </div>
             <div class="form-field">
               <label>Next Order Date</label>
-              <input type="date" id="f-next-order">
+              <input type="text" id="f-next-order" placeholder="e.g. Apr 15, 2026">
             </div>
             <div class="form-field full">
               <label>Schedule Notes</label>
@@ -612,19 +617,32 @@ function renderMedList() {
   document.getElementById('med-list').innerHTML = categories.map(cat => {
     const meds = MEDICATIONS.filter(m => m.category === cat);
     const isOpen = openGroups.has(cat);
+
+    // Determine worst urgency across the group for the header dot
+    const statuses = meds.map(m => getStatus(ordersData[m.id]).cls);
+    const groupUrgency = statuses.includes('status-due') ? 'due'
+      : statuses.includes('status-soon') ? 'soon' : '';
+    const alertDot = groupUrgency
+      ? `<span class="tree-alert-dot ${groupUrgency}"></span>` : '';
+
     const items = meds.map(m => {
       const o = ordersData[m.id];
       const { label, cls } = getStatus(o);
+      // Small inline dot before name when item is due/soon
+      const itemDot = cls === 'status-due' ? `<span class="tree-alert-dot due" style="display:inline-block;margin-right:5px;vertical-align:middle"></span>`
+        : cls === 'status-soon' ? `<span class="tree-alert-dot soon" style="display:inline-block;margin-right:5px;vertical-align:middle"></span>` : '';
       return `<div class="med-item${activeMedId === m.id ? ' active' : ''}" onclick="selectMed('${m.id}')">
-        <div class="med-item-name">${m.name}</div>
+        <div class="med-item-name">${itemDot}${m.name}</div>
         <div class="med-item-dose">${m.dose}</div>
         <div class="med-item-status ${cls}">${label}</div>
       </div>`;
     }).join('');
+
     return `<div class="tree-group${isOpen ? ' open' : ''}" id="grp-${cat}">
       <div class="tree-group-header" onclick="toggleGroup('${cat}')">
         <span class="tree-chevron">${CHEVRON}</span>
         <span class="tree-group-label">${cat}</span>
+        ${alertDot}
         <span class="tree-group-count">${meds.length}</span>
       </div>
       <div class="tree-items">${items}</div>
@@ -632,24 +650,20 @@ function renderMedList() {
   }).join('');
 }
 
-function getStatus(o) {
-  if (!o?.nextOrderDate) return { label: 'No schedule', cls: 'status-empty' };
-  const d = daysDiff(o.nextOrderDate);
-  if (d < 0) return { label: `Overdue by ${-d}d`, cls: 'status-due' };
-  if (d <= 14) return { label: `Due in ${d}d`, cls: 'status-soon' };
-  return { label: `Next: ${fmtDate(o.nextOrderDate)}`, cls: 'status-ok' };
-}
-
 function daysDiff(dateStr) {
   const now = new Date(); now.setHours(0,0,0,0);
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
   return Math.round((d - now) / 86400000);
 }
 
-function fmtDate(str) {
-  if (!str) return '';
-  const [y,m,d] = str.split('-');
-  return `${m}/${d}/${y}`;
+function getStatus(o) {
+  if (!o?.nextOrderDate) return { label: 'No schedule', cls: 'status-empty' };
+  const d = daysDiff(o.nextOrderDate);
+  if (d === null) return { label: o.nextOrderDate, cls: 'status-empty' };
+  if (d < 0) return { label: `Overdue by ${-d}d`, cls: 'status-due' };
+  if (d <= 14) return { label: `Due in ${d}d`, cls: 'status-soon' };
+  return { label: `Next: ${o.nextOrderDate}`, cls: 'status-ok' };
 }
 
 function selectMed(id) {
@@ -739,14 +753,17 @@ async function saveCurrentMed() {
 
 async function scheduleReminder() {
   if (!activeMedId) return;
-  const nextDate = document.getElementById('f-next-order').value;
-  if (!nextDate) { toast('Set a Next Order Date first'); return; }
+  const nextText = document.getElementById('f-next-order').value.trim();
+  if (!nextText) { toast('Set a Next Order Date first'); return; }
+  const parsed = new Date(nextText);
+  if (isNaN(parsed)) { toast('Date not recognized — try e.g. Apr 15, 2026'); return; }
+  const isoDate = parsed.toISOString().slice(0, 10);
   const med = MEDICATIONS.find(m => m.id === activeMedId);
   const event = {
     summary: `Rx: Order ${med.name} (${med.dose})`,
     description: `Reminder to order ${med.name} ${med.dose}.\n\n${document.getElementById('f-how').value || ''}`,
-    start: { date: nextDate },
-    end: { date: nextDate },
+    start: { date: isoDate },
+    end: { date: isoDate },
     reminders: { useDefault: false, overrides: [{ method: 'email', minutes: 1440 }] }
   };
   const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
