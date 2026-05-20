@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Rx Order Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0f1f3d;
+    --navy2: #1a3260;
+    --blue: #2563eb;
+    --blue-light: #eff6ff;
+    --green: #16a34a;
+    --green-light: #f0fdf4;
+    --red: #dc2626;
+    --gray50: #f8fafc;
+    --gray100: #f1f5f9;
+    --gray200: #e2e8f0;
+    --gray400: #94a3b8;
+    --gray600: #475569;
+    --gray900: #0f172a;
+    --font-display: 'DM Serif Display', serif;
+    --font-body: 'DM Sans', sans-serif;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.16);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: var(--font-body); color: var(--gray900); background: var(--gray50); }
+
+  /* ── Auth screen ── */
+  #auth-screen {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100vh; gap: 24px;
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy2) 100%);
+  }
+  #auth-screen h1 { font-family: var(--font-display); font-size: 32px; color: white; letter-spacing: -0.5px; }
+  #auth-screen p { color: rgba(255,255,255,0.6); font-size: 14px; text-align: center; max-width: 280px; }
+  #sign-in-btn {
+    display: flex; align-items: center; gap: 10px;
+    background: white; color: var(--gray900); border: none;
+    padding: 12px 24px; border-radius: 8px; font-family: var(--font-body);
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    box-shadow: var(--shadow-lg); transition: transform 0.1s;
+  }
+  #sign-in-btn:hover { transform: translateY(-1px); }
+  #sign-in-btn img { width: 20px; height: 20px; }
+
+  /* ── App layout ── */
+  #app { display: none; height: 100vh; flex-direction: column; }
+  #app.visible { display: flex; }
+
+  /* Header */
+  #header {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+    padding: 14px 20px; flex-shrink: 0; color: white;
+    display: flex; align-items: center; gap: 14px;
+  }
+  #header h1 { font-family: var(--font-display); font-size: 20px; letter-spacing: -0.3px; flex: 1; }
+  #header .sub { font-size: 11px; opacity: 0.55; margin-top: 2px; }
+  #sign-out-btn {
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+    color: white; padding: 5px 12px; border-radius: 6px; font-family: var(--font-body);
+    font-size: 11px; cursor: pointer;
+  }
+
+  /* Toast */
+  #toast {
+    display: none; position: fixed; top: 16px; left: 50%;
+    transform: translateX(-50%); z-index: 1000;
+    padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    box-shadow: var(--shadow-lg); white-space: nowrap;
+  }
+  #toast.success { background: var(--green-light); color: var(--green); border: 1px solid #bbf7d0; display: block; }
+  #toast.error   { background: #fef2f2; color: var(--red); border: 1px solid #fecaca; display: block; }
+
+  /* Body */
+  #body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+  /* Left panel */
+  #left {
+    width: 260px; flex-shrink: 0; display: flex; flex-direction: column;
+    border-right: 1px solid var(--gray200); background: white; overflow: hidden;
+  }
+  #cat-filter {
+    padding: 10px 10px 8px; flex-shrink: 0;
+    border-bottom: 1px solid var(--gray100);
+    display: flex; flex-wrap: wrap; gap: 4px;
+  }
+  .cat-btn {
+    padding: 3px 9px; border-radius: 20px; border: 1px solid var(--gray200);
+    font-family: var(--font-body); font-size: 10px; font-weight: 600;
+    cursor: pointer; background: transparent; color: var(--gray600);
+    transition: all 0.1s;
+  }
+  .cat-btn.active { background: var(--navy); color: white; border-color: var(--navy); }
+  #med-list { flex: 1; overflow-y: auto; padding: 6px 8px; }
+  .med-card {
+    border-radius: 8px; padding: 9px 11px; cursor: pointer;
+    margin-bottom: 4px; border: 1.5px solid var(--gray100);
+    background: white; transition: all 0.1s; display: flex;
+    align-items: flex-start; gap: 8px;
+  }
+  .med-card:hover { border-color: var(--gray200); background: var(--gray50); }
+  .med-card.selected { background: var(--navy); border-color: var(--navy2); }
+  .med-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .med-name { font-size: 13px; font-weight: 600; color: var(--gray900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .med-card.selected .med-name { color: white; }
+  .med-dose { font-size: 11px; color: var(--gray400); margin-top: 1px; }
+  .med-card.selected .med-dose { color: #93c5fd; }
+  .med-next { font-size: 10px; color: #d97706; margin-top: 3px; }
+  .med-card.selected .med-next { color: #fde68a; }
+  .med-filled { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; margin-top: 4px; margin-left: auto; }
+
+  /* Right panel */
+  #right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  #empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%; color: var(--gray400); gap: 12px;
+  }
+  #empty-state .icon { font-size: 40px; }
+  #empty-state p { font-size: 15px; text-align: center; max-width: 240px; }
+
+  /* Detail header — frozen */
+  #detail-header {
+    display: none; flex-shrink: 0; background: white;
+    border-bottom: 1px solid var(--gray200); padding: 13px 20px;
+    align-items: center; flex-wrap: wrap; gap: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  #detail-header.visible { display: flex; }
+  #detail-title { font-family: var(--font-display); font-size: 18px; color: var(--gray900); }
+  #detail-meta { display: flex; gap: 6px; margin-top: 3px; align-items: center; flex-wrap: wrap; }
+  .cat-badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px;
+    font-weight: 700; font-family: var(--font-body);
+  }
+  #detail-dose { font-size: 11px; color: var(--gray400); }
+  #header-btns { display: flex; gap: 8px; margin-left: auto; }
+  .btn-outline {
+    padding: 8px 14px; border-radius: 8px; border: 1.5px solid var(--navy);
+    background: white; color: var(--navy); cursor: pointer;
+    font-family: var(--font-body); font-size: 13px; font-weight: 600;
+    white-space: nowrap; transition: all 0.1s;
+  }
+  .btn-outline:hover { background: var(--blue-light); }
+  .btn-primary {
+    padding: 8px 20px; border-radius: 8px; border: none;
+    background: var(--navy); color: white; cursor: pointer;
+    font-family: var(--font-body); font-size: 13px; font-weight: 600;
+    transition: all 0.15s;
+  }
+  .btn-primary:disabled { background: var(--gray200); color: var(--gray400); cursor: default; }
+  .btn-primary:not(:disabled):hover { background: var(--navy2); }
+
+  /* Form */
+  #form-scroll { flex: 1; overflow-y: auto; padding: 18px 20px; }
+  .form-inner { max-width: 640px; }
+  .sec-head {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 14px; margin-top: 6px;
+  }
+  .sec-head-line { flex: 1; height: 1px; background: var(--gray200); margin-left: 4px; }
+  .sec-head-label {
+    font-size: 11px; font-weight: 800; color: var(--gray600);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .form-field { margin-bottom: 14px; }
+  .form-field.full { grid-column: 1 / -1; }
+  .field-label {
+    display: block; font-size: 11px; font-weight: 700; color: var(--gray600);
+    text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px;
+  }
+  .field-input, .field-textarea {
+    border: 1.5px solid var(--gray200); border-radius: 8px;
+    padding: 9px 12px; font-size: 14px; font-family: var(--font-body);
+    color: var(--gray900); outline: none; background: white;
+    width: 100%; transition: border-color 0.15s; -webkit-appearance: none;
+  }
+  .field-input:focus, .field-textarea:focus { border-color: var(--blue); }
+  .field-textarea { resize: vertical; }
+
+  /* Modal */
+  #modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 200;
+    align-items: center; justify-content: center; padding: 16px;
+  }
+  #modal-overlay.visible { display: flex; }
+  #modal {
+    background: white; border-radius: 16px; padding: 26px;
+    width: 100%; max-width: 420px; box-shadow: var(--shadow-lg);
+  }
+  #modal h3 { font-family: var(--font-display); font-size: 18px; margin-bottom: 4px; }
+  #modal .modal-sub { font-size: 12px; color: var(--gray400); margin-bottom: 18px; }
+  #modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .btn-cancel {
+    padding: 8px 16px; border-radius: 8px; border: 1px solid var(--gray200);
+    background: white; cursor: pointer; font-family: var(--font-body);
+    font-size: 13px; color: var(--gray600);
+  }
+
+  /* Saving indicator */
+  #saving-bar {
+    display: none; background: var(--navy); color: white;
+    padding: 8px 20px; font-size: 12px; text-align: center; flex-shrink: 0;
+  }
+  #saving-bar.visible { display: block; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--gray200); border-radius: 4px; }
+
+  @media (max-width: 600px) {
+    #left { width: 200px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-field.full { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Auth screen -->
+<div id="auth-screen">
+  <div style="font-size:48px">💊</div>
+  <h1>Rx Order Manager</h1>
+  <p>Medication sources, ordering instructions, and schedules — backed by Google Drive & Calendar</p>
+  <button id="sign-in-btn">
+    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+    Sign in with Google
+  </button>
+</div>
+
+<!-- Main app -->
+<div id="app">
+  <div id="toast"></div>
+
+  <!-- Header -->
+  <div id="header">
+    <div style="font-size:22px">💊</div>
+    <div style="flex:1">
+      <h1>Rx Order Manager</h1>
+      <div class="sub" id="header-sub">Loading…</div>
+    </div>
+    <button id="sign-out-btn">Sign out</button>
+  </div>
+
+  <!-- Saving bar -->
+  <div id="saving-bar">Saving to Google Drive…</div>
+
+  <!-- Body -->
+  <div id="body">
+
+    <!-- Left: med list -->
+    <div id="left">
+      <div id="cat-filter"></div>
+      <div id="med-list"></div>
+    </div>
+
+    <!-- Right: detail -->
+    <div id="right">
+      <div id="empty-state">
+        <div class="icon">💊</div>
+        <p>Select a medication to view or edit its ordering details</p>
+      </div>
+
+      <!-- Frozen header -->
+      <div id="detail-header">
+        <div style="flex:1;min-width:0">
+          <div id="detail-title"></div>
+          <div id="detail-meta">
+            <span id="detail-badge" class="cat-badge"></span>
+            <span id="detail-dose"></span>
+          </div>
+        </div>
+        <div id="header-btns">
+          <button class="btn-outline" id="schedule-btn">📅 Schedule</button>
+          <button class="btn-primary" id="save-btn" disabled>Save</button>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <div id="form-scroll" style="display:none">
+        <div class="form-inner">
+
+          <div class="sec-head">
+            <span>📦</span>
+            <span class="sec-head-label">Pharmacy / Source</span>
+            <div class="sec-head-line"></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="field-label">Pharmacy Name</label>
+              <input class="field-input" id="f-source" placeholder="CVS, Express Scripts…">
+            </div>
+            <div class="form-field">
+              <label class="field-label">Phone / Contact</label>
+              <input class="field-input" id="f-sourcePhone" placeholder="800-555-1234">
+            </div>
+            <div class="form-field full">
+              <label class="field-label">Address / Portal URL</label>
+              <input class="field-input" id="f-sourceAddress" placeholder="Address or website">
+            </div>
+          </div>
+
+          <div class="sec-head">
+            <span>👨‍⚕️</span>
+            <span class="sec-head-label">Prescribing Doctor</span>
+            <div class="sec-head-line"></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="field-label">Doctor / Practice</label>
+              <input class="field-input" id="f-prescriberName" placeholder="Dr. Smith…">
+            </div>
+            <div class="form-field">
+              <label class="field-label">Phone / Fax</label>
+              <input class="field-input" id="f-prescriberPhone" placeholder="555-234-5678">
+            </div>
+          </div>
+
+          <div class="sec-head">
+            <span>🛒</span>
+            <span class="sec-head-label">How to Order</span>
+            <div class="sec-head-line"></div>
+          </div>
+          <div class="form-field full">
+            <label class="field-label">Ordering Instructions</label>
+            <textarea class="field-textarea" id="f-howToOrder" rows="3"
+              placeholder="Call pharmacy 2 weeks before running out. Requires new Rx each cycle…"></textarea>
+          </div>
+
+          <div class="sec-head">
+            <span>📅</span>
+            <span class="sec-head-label">Schedule</span>
+            <div class="sec-head-line"></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="field-label">Last Order Date</label>
+              <input class="field-input" id="f-lastOrderDate" type="date">
+            </div>
+            <div class="form-field">
+              <label class="field-label">Next Order Date</label>
+              <input class="field-input" id="f-nextOrderDate" type="date">
+            </div>
+            <div class="form-field full">
+              <label class="field-label">Schedule Notes</label>
+              <textarea class="field-textarea" id="f-scheduleNotes" rows="2"
+                placeholder="Every 90 days. Coordinate with clinic visit…"></textarea>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar modal -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h3>📅 Schedule Order Reminder</h3>
+    <p class="modal-sub" id="modal-sub"></p>
+    <div class="form-field">
+      <label class="field-label">Order Date</label>
+      <input class="field-input" id="cal-date" type="date">
+    </div>
+    <div class="form-field">
+      <label class="field-label">Event Title</label>
+      <input class="field-input" id="cal-title">
+    </div>
+    <div class="form-field">
+      <label class="field-label">Description</label>
+      <textarea class="field-textarea" id="cal-notes" rows="3"></textarea>
+    </div>
+    <div id="modal-btns">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-primary" id="modal-confirm">Add to Google Calendar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const CLIENT_ID    = '972705955264-1r2bivpb0ece9bvvs8vbe0tuklru9761.apps.googleusercontent.com';
+const SCOPES       = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
+const FILENAME     = 'richard_medication_orders.json';
+const TZ           = 'America/New_York';
+
+// ── Medication data ───────────────────────────────────────────────────────────
+const MEDICATIONS = [
+  { id:'rosuvastatin',    name:'Rosuvastatin',           dose:'5mg',         category:'Cardiac',       intervalDays:90  },
+  { id:'amlodipine',      name:'Amlodipine',             dose:'2.5mg',       category:'Cardiac',       intervalDays:90  },
+  { id:'clopidogrel',     name:'Clopidogrel',            dose:'75mg',        category:'Cardiac',       intervalDays:90  },
+  { id:'aspirin',         name:'Aspirin',                dose:'81mg',        category:'Cardiac',       intervalDays:90  },
+  { id:'metoprolol',      name:'Metoprolol',             dose:'50mg',        category:'Cardiac',       intervalDays:90  },
+  { id:'duloxetine',      name:'Duloxetine',             dose:'30mg/60mg',   category:'Mental Health', intervalDays:90  },
+  { id:'clonazepam',      name:'Clonazepam',             dose:'0.5mg',       category:'Mental Health', intervalDays:30  },
+  { id:'terazosin',       name:'Terazosin',              dose:'10mg',        category:'Urologic',      intervalDays:90  },
+  { id:'tolterodine',     name:'Tolterodine',            dose:'4mg',         category:'Urologic',      intervalDays:90  },
+  { id:'pantoprazole',    name:'Pantoprazole',           dose:'40mg',        category:'GI',            intervalDays:90  },
+  { id:'fluticasone',     name:'Fluticasone-Salmeterol', dose:'Inhaler',     category:'Respiratory',   intervalDays:30  },
+  { id:'prevident',       name:'PreviDent',              dose:'Toothpaste',  category:'Dental',        intervalDays:180 },
+  { id:'lupron',          name:'Lupron',                 dose:'Every 3mo',   category:'Oncology',      intervalDays:90  },
+  { id:'nubeqa',          name:'Nubeqa (Darolutamide)',  dose:'600mg BID',   category:'Oncology',      intervalDays:30  },
+  { id:'xgeva',           name:'XGEVA (Denosumab)',      dose:'120mg',       category:'Oncology',      intervalDays:90  },
+  { id:'calcium_citrate', name:'Calcium Citrate',        dose:'1000mg BID',  category:'Bone Health',   intervalDays:30  },
+];
+
+const CAT = {
+  'Cardiac':       { accent:'#e11d48', badge:'#fecdd3', dot:'#f43f5e' },
+  'Mental Health': { accent:'#7c3aed', badge:'#ede9fe', dot:'#8b5cf6' },
+  'Urologic':      { accent:'#1d4ed8', badge:'#dbeafe', dot:'#3b82f6' },
+  'GI':            { accent:'#15803d', badge:'#bbf7d0', dot:'#22c55e' },
+  'Respiratory':   { accent:'#c2410c', badge:'#fed7aa', dot:'#f97316' },
+  'Dental':        { accent:'#a16207', badge:'#fef08a', dot:'#eab308' },
+  'Oncology':      { accent:'#a21caf', badge:'#f5d0fe', dot:'#d946ef' },
+  'Bone Health':   { accent:'#0369a1', badge:'#bae6fd', dot:'#0ea5e9' },
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let accessToken = null;
+let driveFileId = null;
+let medData     = {};
+let selectedId  = null;
+let filterCat   = 'All';
+let dirty       = false;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const toInputDate = d => d.toISOString().split('T')[0];
+const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const fmtShort = d => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+let toastTimer;
+function showToast(msg, type='success') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3000);
+}
+
+function setSaving(on) {
+  $('saving-bar').classList.toggle('visible', on);
+}
+
+function formHasContent() {
+  const fields = ['f-source','f-sourcePhone','f-sourceAddress','f-prescriberName',
+    'f-prescriberPhone','f-howToOrder','f-lastOrderDate','f-nextOrderDate','f-scheduleNotes'];
+  return fields.some(id => $(id).value.trim().length > 0);
+}
+
+// ── Google Identity ───────────────────────────────────────────────────────────
+function loadGIS() {
+  return new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve;
+    document.head.appendChild(s);
+  });
+}
+
+async function signIn() {
+  await loadGIS();
+  return new Promise((resolve, reject) => {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: (resp) => {
+        if (resp.error) return reject(resp.error);
+        accessToken = resp.access_token;
+        resolve();
+      },
+    });
+    client.requestAccessToken();
+  });
+}
+
+// ── Google Drive ──────────────────────────────────────────────────────────────
+async function driveRequest(url, opts={}) {
+  const res = await fetch(url, {
+    ...opts,
+    headers: { 'Authorization': `Bearer ${accessToken}`, ...(opts.headers||{}) }
+  });
+  if (!res.ok) throw new Error(`Drive error ${res.status}`);
+  return res.json();
+}
+
+async function findOrCreateFile() {
+  const q = encodeURIComponent(`name='${FILENAME}' and mimeType='application/json' and trashed=false`);
+  const list = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`);
+  if (list.files && list.files.length > 0) {
+    driveFileId = list.files[0].id;
+    // Load content
+    const content = await driveRequest(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
+    medData = content || {};
+  } else {
+    // Create new file
+    const boundary = 'med_boundary_xyz';
+    const meta = { name: FILENAME, mimeType: 'application/json' };
+    const body = [
+      `--${boundary}`, 'Content-Type: application/json', '',
+      JSON.stringify(meta),
+      `--${boundary}`, 'Content-Type: application/json', '',
+      JSON.stringify({}),
+      `--${boundary}--`
+    ].join('\r\n');
+    const created = await driveRequest(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+      { method:'POST', headers:{'Content-Type':`multipart/related; boundary=${boundary}`}, body }
+    );
+    driveFileId = created.id;
+    medData = {};
+  }
+}
+
+async function saveToDrive() {
+  setSaving(true);
+  try {
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(medData)
+    });
+    showToast('Saved to Google Drive ✓');
+  } catch(e) {
+    showToast('Drive save failed: ' + e.message, 'error');
+  } finally {
+    setSaving(false);
+  }
+}
+
+// ── Google Calendar ───────────────────────────────────────────────────────────
+async function createCalEvent(title, dateStr, description) {
+  const start = `${dateStr}T08:00:00`;
+  const end   = `${dateStr}T08:30:00`;
+  const event = {
+    summary: title, description,
+    start: { dateTime: start, timeZone: TZ },
+    end:   { dateTime: end,   timeZone: TZ },
+    reminders: { useDefault: false, overrides: [{ method:'popup', minutes:480 }] }
+  };
+  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(event)
+  });
+  if (!res.ok) throw new Error(`Calendar error ${res.status}`);
+  return res.json();
+}
+
+// ── UI: category filter ───────────────────────────────────────────────────────
+function renderCatFilter() {
+  const cats = ['All', ...Array.from(new Set(MEDICATIONS.map(m => m.category)))];
+  $('cat-filter').innerHTML = cats.map(c =>
+    `<button class="cat-btn${c===filterCat?' active':''}" data-cat="${c}">${c}</button>`
+  ).join('');
+  $('cat-filter').querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterCat = btn.dataset.cat;
+      renderCatFilter();
+      renderMedList();
+    });
+  });
+}
+
+// ── UI: med list ──────────────────────────────────────────────────────────────
+function renderMedList() {
+  const meds = filterCat === 'All' ? MEDICATIONS : MEDICATIONS.filter(m => m.category === filterCat);
+  $('med-list').innerHTML = meds.map(med => {
+    const c      = CAT[med.category] || {dot:'#888'};
+    const filled = medData[med.id] && (medData[med.id].source || medData[med.id].howToOrder || medData[med.id].nextOrderDate);
+    const isSel  = med.id === selectedId;
+    const nd     = medData[med.id]?.nextOrderDate;
+    return `
+      <div class="med-card${isSel?' selected':''}" data-id="${med.id}">
+        <div class="med-dot" style="background:${c.dot}"></div>
+        <div style="flex:1;min-width:0">
+          <div class="med-name">${med.name}</div>
+          <div class="med-dose">${med.dose}</div>
+          ${nd ? `<div class="med-next">📅 ${fmtShort(nd)}</div>` : ''}
+        </div>
+        ${filled && !isSel ? '<div class="med-filled"></div>' : ''}
+      </div>`;
+  }).join('');
+  $('med-list').querySelectorAll('.med-card').forEach(card => {
+    card.addEventListener('click', () => selectMed(card.dataset.id));
+  });
+  // Update header count
+  const filled = MEDICATIONS.filter(m => medData[m.id] &&
+    (medData[m.id].source || medData[m.id].howToOrder || medData[m.id].nextOrderDate)).length;
+  $('header-sub').textContent = `${filled} of ${MEDICATIONS.length} medications filled · richard.haber@gmail.com`;
+}
+
+// ── UI: select med ────────────────────────────────────────────────────────────
+function selectMed(id) {
+  selectedId = id;
+  const med = MEDICATIONS.find(m => m.id === id);
+  const ex  = medData[id] || {};
+  const c   = CAT[med.category] || {accent:'#555', badge:'#eee'};
+
+  // Show detail header
+  $('detail-header').classList.add('visible');
+  $('empty-state').style.display = 'none';
+  $('form-scroll').style.display = 'block';
+
+  // Populate header
+  $('detail-title').textContent = med.name;
+  $('detail-badge').textContent = med.category;
+  $('detail-badge').style.background = c.badge;
+  $('detail-badge').style.color = c.accent;
+  $('detail-dose').textContent = med.dose;
+
+  // Populate form
+  $('f-source').value         = ex.source||'';
+  $('f-sourcePhone').value    = ex.sourcePhone||'';
+  $('f-sourceAddress').value  = ex.sourceAddress||'';
+  $('f-prescriberName').value = ex.prescriberName||'';
+  $('f-prescriberPhone').value= ex.prescriberPhone||'';
+  $('f-howToOrder').value     = ex.howToOrder||'';
+  $('f-lastOrderDate').value  = ex.lastOrderDate||'';
+  $('f-nextOrderDate').value  = ex.nextOrderDate||'';
+  $('f-scheduleNotes').value  = ex.scheduleNotes||'';
+
+  dirty = false;
+  $('save-btn').disabled = true;
+  renderMedList();
+}
+
+// ── Form change tracking ──────────────────────────────────────────────────────
+['f-source','f-sourcePhone','f-sourceAddress','f-prescriberName','f-prescriberPhone',
+ 'f-howToOrder','f-lastOrderDate','f-nextOrderDate','f-scheduleNotes'].forEach(id => {
+  $(id).addEventListener('input', () => {
+    dirty = true;
+    $('save-btn').disabled = !formHasContent();
+  });
+});
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+$('save-btn').addEventListener('click', async () => {
+  if (!selectedId) return;
+  medData[selectedId] = {
+    source:          $('f-source').value,
+    sourcePhone:     $('f-sourcePhone').value,
+    sourceAddress:   $('f-sourceAddress').value,
+    prescriberName:  $('f-prescriberName').value,
+    prescriberPhone: $('f-prescriberPhone').value,
+    howToOrder:      $('f-howToOrder').value,
+    lastOrderDate:   $('f-lastOrderDate').value,
+    nextOrderDate:   $('f-nextOrderDate').value,
+    scheduleNotes:   $('f-scheduleNotes').value,
+    updatedAt:       new Date().toISOString()
+  };
+  dirty = false;
+  $('save-btn').disabled = true;
+  renderMedList();
+  await saveToDrive();
+});
+
+// ── Schedule ──────────────────────────────────────────────────────────────────
+$('schedule-btn').addEventListener('click', () => {
+  if (!selectedId) return;
+  const med = MEDICATIONS.find(m => m.id === selectedId);
+  const ex  = medData[selectedId] || {};
+  const defaultDate = ex.nextOrderDate ||
+    toInputDate(addDays(new Date(), Math.max(med.intervalDays - 14, 1)));
+  const howLine = (ex.howToOrder||'').split('\n')[0].slice(0,50);
+  $('cal-date').value  = defaultDate;
+  $('cal-title').value = `Order ${med.name} — ${howLine || med.dose}`;
+  $('cal-notes').value =
+    `Medication: ${med.name} ${med.dose}\nCategory: ${med.category}` +
+    (ex.howToOrder ? `\n\n${ex.howToOrder}` : '') +
+    (ex.sourcePhone ? `\n\nPharmacy: ${ex.source||''} · ${ex.sourcePhone}` : '');
+  $('modal-sub').textContent = `${med.name} · ${med.dose}`;
+  $('modal-overlay').classList.add('visible');
+});
+
+$('modal-cancel').addEventListener('click', () => {
+  $('modal-overlay').classList.remove('visible');
+});
+
+$('modal-confirm').addEventListener('click', async () => {
+  const dateStr = $('cal-date').value;
+  const title   = $('cal-title').value;
+  const notes   = $('cal-notes').value;
+  if (!dateStr) return;
+  $('modal-confirm').disabled = true;
+  $('modal-confirm').textContent = 'Creating…';
+  try {
+    await createCalEvent(title, dateStr, notes);
+    // Save nextOrderDate
+    if (selectedId) {
+      medData[selectedId] = medData[selectedId] || {};
+      medData[selectedId].nextOrderDate = dateStr;
+      medData[selectedId].updatedAt = new Date().toISOString();
+      $('f-nextOrderDate').value = dateStr;
+      await saveToDrive();
+      renderMedList();
+    }
+    $('modal-overlay').classList.remove('visible');
+    showToast('📅 Calendar event created ✓');
+  } catch(e) {
+    showToast('Calendar error: ' + e.message, 'error');
+  } finally {
+    $('modal-confirm').disabled = false;
+    $('modal-confirm').textContent = 'Add to Google Calendar';
+  }
+});
+
+// ── Sign in / out ─────────────────────────────────────────────────────────────
+$('sign-in-btn').addEventListener('click', async () => {
+  try {
+    await signIn();
+    $('auth-screen').style.display = 'none';
+    $('app').classList.add('visible');
+    $('header-sub').textContent = 'Loading data…';
+    await findOrCreateFile();
+    renderCatFilter();
+    renderMedList();
+  } catch(e) {
+    showToast('Sign-in failed: ' + e.message, 'error');
+  }
+});
+
+$('sign-out-btn').addEventListener('click', () => {
+  accessToken = null; driveFileId = null; medData = {}; selectedId = null;
+  $('app').classList.remove('visible');
+  $('auth-screen').style.display = 'flex';
+});
+
+// Close modal on overlay click
+$('modal-overlay').addEventListener('click', e => {
+  if (e.target === $('modal-overlay')) $('modal-overlay').classList.remove('visible');
+});
+</script>
+</body>
+</html>
