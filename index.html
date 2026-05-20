@@ -271,13 +271,10 @@
     border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
   }
   .form-field textarea { resize: vertical; min-height: 80px; }
-  .date-display {
-    padding: 8px 12px; border-radius: 7px; font-size: 13px;
-    color: var(--text-sub); background: var(--surface2);
-    border: 1px solid var(--border); min-height: 35px;
-    font-family: var(--font-body);
-  }
-  .date-display:empty::before { content: '—'; color: var(--text-muted); }
+  .date-info { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--text-sub); }
+  .date-val { font-weight: 600; color: var(--text); margin-left: 4px; }
+  #cal-date { transition: border-color 0.15s; }
+  #cal-date:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
 
   /* Action buttons */
   .action-row { display: flex; gap: 10px; margin-top: 20px; }
@@ -436,15 +433,11 @@
 
         <div class="form-section">
           <h3>Schedule</h3>
-          <div class="form-grid">
-            <div class="form-field">
-              <label>Last Order Date</label>
-              <div id="f-last-order" class="date-display"></div>
-            </div>
-            <div class="form-field">
-              <label>Next Order Date</label>
-              <div id="f-next-order" class="date-display"></div>
-            </div>
+          <div class="date-info">
+            <span>Last order date: <span id="f-last-order" class="date-val">—</span></span>
+            <span>Next order date: <span id="f-next-order" class="date-val">—</span></span>
+          </div>
+          <div class="form-grid" style="margin-top:14px">
             <div class="form-field full">
               <label>Schedule Notes</label>
               <textarea id="f-schedule-notes" placeholder="e.g. 90-day supply, order 2 weeks early…" style="min-height:60px"></textarea>
@@ -455,10 +448,21 @@
         <div class="action-row">
           <button class="btn-primary" id="btn-save" onclick="saveCurrentMed()" disabled>💾 Save to Drive</button>
           <button class="btn-secondary" onclick="clearForm()">Reset</button>
-          <button class="btn-cal" onclick="scheduleReminder()">📅 Add to Calendar</button>
+          <button class="btn-cal" style="margin-left:auto" onclick="openCalPopup()">📅 Add to Calendar</button>
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Calendar date popup -->
+<div id="cal-popup-overlay" onclick="closeCalPopup()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:center;justify-content:center;"></div>
+<div id="cal-popup" style="display:none;position:fixed;z-index:201;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;box-shadow:var(--shadow-lg);min-width:280px;flex-direction:column;gap:16px;">
+  <div style="font-size:14px;font-weight:600;color:var(--text)">Select order date</div>
+  <input type="date" id="cal-date" onchange="syncCalDate()" style="padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:14px;color:var(--text);background:var(--input-bg);outline:none;width:100%;">
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn-secondary" onclick="closeCalPopup()">Cancel</button>
+    <button class="btn-cal" onclick="confirmCalDate()">Accept</button>
   </div>
 </div>
 
@@ -702,8 +706,9 @@ function selectMed(id) {
   document.getElementById('f-prescriber').value = o.prescriberName || '';
   document.getElementById('f-prescriber-phone').value = o.prescriberPhone || '';
   document.getElementById('f-how').value = o.howToOrder || '';
-  document.getElementById('f-last-order').textContent = o.lastOrderDate || '';
-  document.getElementById('f-next-order').textContent = o.nextOrderDate || '';
+  document.getElementById('f-last-order').textContent = o.lastOrderDate || '—';
+  document.getElementById('f-next-order').textContent = o.nextOrderDate || '—';
+  document.getElementById('cal-date').value = o.nextOrderDate || '';
   document.getElementById('f-schedule-notes').value = o.scheduleNotes || '';
 
   document.getElementById('empty-state').classList.remove('visible');
@@ -729,9 +734,36 @@ function clearForm() {
   ['f-source','f-source-phone','f-source-addr','f-prescriber','f-prescriber-phone','f-how','f-schedule-notes'].forEach(id => {
     document.getElementById(id).value = '';
   });
-  document.getElementById('f-last-order').textContent = '';
-  document.getElementById('f-next-order').textContent = '';
+  document.getElementById('f-last-order').textContent = '—';
+  document.getElementById('f-next-order').textContent = '—';
+  document.getElementById('cal-date').value = '';
   validateForm();
+}
+
+function openCalPopup() {
+  const overlay = document.getElementById('cal-popup-overlay');
+  const popup = document.getElementById('cal-popup');
+  overlay.style.display = 'block';
+  popup.style.display = 'flex';
+  // pre-fill with existing next order date if set
+  const stored = document.getElementById('f-next-order').textContent.trim();
+  if (stored && stored !== '—') document.getElementById('cal-date').value = stored;
+}
+
+function closeCalPopup() {
+  document.getElementById('cal-popup-overlay').style.display = 'none';
+  document.getElementById('cal-popup').style.display = 'none';
+}
+
+function syncCalDate() {
+  const val = document.getElementById('cal-date').value;
+  document.getElementById('f-next-order').textContent = val || '—';
+}
+
+async function confirmCalDate() {
+  syncCalDate();
+  closeCalPopup();
+  await scheduleReminder();
 }
 
 async function saveCurrentMed() {
@@ -743,8 +775,8 @@ async function saveCurrentMed() {
     prescriberName: document.getElementById('f-prescriber').value,
     prescriberPhone: document.getElementById('f-prescriber-phone').value,
     howToOrder: document.getElementById('f-how').value,
-    lastOrderDate: document.getElementById('f-last-order').textContent,
-    nextOrderDate: document.getElementById('f-next-order').textContent,
+    lastOrderDate: document.getElementById('f-last-order').textContent.replace('—','').trim(),
+    nextOrderDate: document.getElementById('cal-date').value,
     scheduleNotes: document.getElementById('f-schedule-notes').value,
     updatedAt: new Date().toISOString(),
   };
@@ -762,11 +794,8 @@ async function saveCurrentMed() {
 
 async function scheduleReminder() {
   if (!activeMedId) return;
-  const nextText = document.getElementById('f-next-order').textContent.trim();
-  if (!nextText) { toast('Set a Next Order Date first'); return; }
-  const parsed = new Date(nextText);
-  if (isNaN(parsed)) { toast('Date not recognized — try e.g. Apr 15, 2026'); return; }
-  const isoDate = parsed.toISOString().slice(0, 10);
+  const isoDate = document.getElementById('cal-date').value;
+  if (!isoDate) { toast('Pick a date first'); return; }
   const med = MEDICATIONS.find(m => m.id === activeMedId);
   const event = {
     summary: `Rx: Order ${med.name} (${med.dose})`,
