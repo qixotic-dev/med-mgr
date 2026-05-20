@@ -132,29 +132,49 @@
     border-right: 1px solid var(--border); display: flex; flex-direction: column;
     overflow: hidden; transition: background 0.2s, border-color 0.2s;
   }
-  #cat-filter {
-    padding: 12px; border-bottom: 1px solid var(--border); display: flex;
-    flex-wrap: wrap; gap: 6px; transition: border-color 0.2s;
+  #med-list { flex: 1; overflow-y: auto; padding: 8px 6px; }
+
+  /* Tree group */
+  .tree-group { margin-bottom: 2px; }
+  .tree-group-header {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 8px; border-radius: 7px; cursor: pointer;
+    user-select: none; transition: background 0.12s;
   }
-  .cat-btn {
-    padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border);
-    background: var(--surface2); color: var(--text-sub);
-    font-size: 11px; font-weight: 500; cursor: pointer; font-family: var(--font-body);
-    transition: all 0.15s;
+  .tree-group-header:hover { background: var(--surface2); }
+  .tree-chevron {
+    width: 14px; height: 14px; flex-shrink: 0; color: var(--text-muted);
+    transition: transform 0.2s; display: flex; align-items: center; justify-content: center;
   }
-  .cat-btn.active { background: var(--navy); color: white; border-color: var(--navy); }
-  [data-theme="dark"] .cat-btn.active { background: var(--blue); border-color: var(--blue); }
-  #med-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .tree-group.open .tree-chevron { transform: rotate(90deg); }
+  .tree-group-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--text-sub); flex: 1;
+  }
+  .tree-group-count {
+    font-size: 10px; background: var(--surface2); color: var(--text-muted);
+    padding: 1px 6px; border-radius: 10px; font-weight: 600;
+  }
+  .tree-group.open .tree-group-count { display: none; }
+
+  /* Tree items */
+  .tree-items { display: none; padding-left: 10px; }
+  .tree-group.open .tree-items { display: block; }
+
   .med-item {
-    padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px;
-    border: 1px solid transparent; transition: all 0.15s;
+    padding: 8px 10px; border-radius: 7px; cursor: pointer; margin-bottom: 2px;
+    border: 1px solid transparent; transition: all 0.12s;
+    border-left: 2px solid transparent;
   }
   .med-item:hover { background: var(--surface2); }
-  .med-item.active { background: var(--blue-light); border-color: rgba(37,99,235,0.3); }
-  [data-theme="dark"] .med-item.active { border-color: rgba(37,99,235,0.5); }
-  .med-item-name { font-size: 13px; font-weight: 600; color: var(--text); }
-  .med-item-dose { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-  .med-item-status { font-size: 10px; margin-top: 4px; font-weight: 500; }
+  .med-item.active {
+    background: var(--blue-light); border-color: rgba(37,99,235,0.25);
+    border-left-color: var(--blue);
+  }
+  [data-theme="dark"] .med-item.active { border-color: rgba(37,99,235,0.4); border-left-color: var(--blue); }
+  .med-item-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
+  .med-item-dose { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+  .med-item-status { font-size: 10px; margin-top: 3px; font-weight: 500; }
   .status-ok { color: var(--green); }
   .status-soon { color: #d97706; }
   .status-due { color: var(--red); }
@@ -336,7 +356,6 @@
 
     <!-- Left: med list -->
     <div id="left">
-      <div id="cat-filter"></div>
       <div id="med-list"></div>
     </div>
 
@@ -459,14 +478,12 @@ const MEDICATIONS = [
   { id: 'calcium',        name: 'Calcium Citrate',      dose: '1000mg BID',   category: 'BoneHealth',  intervalDays: 90 },
 ];
 
-const CATEGORIES = ['All', ...new Set(MEDICATIONS.map(m => m.category))];
 
 // ── State ────────────────────────────────────────────────────────────────────
 let accessToken = null;
 let driveFileId = null;
 let ordersData = {};
 let activeMedId = null;
-let activeCat = 'All';
 let isDark = false;
 
 // ── Dark mode ────────────────────────────────────────────────────────────────
@@ -513,7 +530,6 @@ async function initApp() {
   document.getElementById('app').style.display = 'flex';
   initDark();
   await loadOrCreateDriveFile();
-  renderCatFilter();
   renderMedList();
   showEmpty();
   updateHeaderSub();
@@ -580,26 +596,38 @@ async function saveToDrive() {
 }
 
 // ── UI Render ────────────────────────────────────────────────────────────────
-function renderCatFilter() {
-  const el = document.getElementById('cat-filter');
-  el.innerHTML = CATEGORIES.map(c =>
-    `<button class="cat-btn${c === activeCat ? ' active' : ''}" onclick="filterCat('${c}')">${c}</button>`
-  ).join('');
+// Track which groups are open (default: all closed)
+const openGroups = new Set();
+
+function toggleGroup(cat) {
+  if (openGroups.has(cat)) openGroups.delete(cat);
+  else openGroups.add(cat);
+  renderMedList();
 }
 
-function filterCat(cat) {
-  activeCat = cat; renderCatFilter(); renderMedList();
-}
+const CHEVRON = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="4,2 10,7 4,12"/></svg>`;
 
 function renderMedList() {
-  const meds = activeCat === 'All' ? MEDICATIONS : MEDICATIONS.filter(m => m.category === activeCat);
-  document.getElementById('med-list').innerHTML = meds.map(m => {
-    const o = ordersData[m.id];
-    const { label, cls } = getStatus(o);
-    return `<div class="med-item${activeMedId === m.id ? ' active' : ''}" onclick="selectMed('${m.id}')">
-      <div class="med-item-name">${m.name}</div>
-      <div class="med-item-dose">${m.dose} · ${m.category}</div>
-      <div class="med-item-status ${cls}">${label}</div>
+  const categories = [...new Set(MEDICATIONS.map(m => m.category))];
+  document.getElementById('med-list').innerHTML = categories.map(cat => {
+    const meds = MEDICATIONS.filter(m => m.category === cat);
+    const isOpen = openGroups.has(cat);
+    const items = meds.map(m => {
+      const o = ordersData[m.id];
+      const { label, cls } = getStatus(o);
+      return `<div class="med-item${activeMedId === m.id ? ' active' : ''}" onclick="selectMed('${m.id}')">
+        <div class="med-item-name">${m.name}</div>
+        <div class="med-item-dose">${m.dose}</div>
+        <div class="med-item-status ${cls}">${label}</div>
+      </div>`;
+    }).join('');
+    return `<div class="tree-group${isOpen ? ' open' : ''}" id="grp-${cat}">
+      <div class="tree-group-header" onclick="toggleGroup('${cat}')">
+        <span class="tree-chevron">${CHEVRON}</span>
+        <span class="tree-group-label">${cat}</span>
+        <span class="tree-group-count">${meds.length}</span>
+      </div>
+      <div class="tree-items">${items}</div>
     </div>`;
   }).join('');
 }
@@ -626,8 +654,10 @@ function fmtDate(str) {
 
 function selectMed(id) {
   activeMedId = id;
-  renderMedList();
+  // ensure the group containing this med is open
   const med = MEDICATIONS.find(m => m.id === id);
+  openGroups.add(med.category);
+  renderMedList();
   const o = ordersData[id] || {};
 
   // populate header
