@@ -271,6 +271,13 @@
     border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
   }
   .form-field textarea { resize: vertical; min-height: 80px; }
+  .date-display {
+    padding: 8px 12px; border-radius: 7px; font-size: 13px;
+    color: var(--text-sub); background: var(--surface2);
+    border: 1px solid var(--border); min-height: 35px;
+    font-family: var(--font-body);
+  }
+  .date-display:empty::before { content: '—'; color: var(--text-muted); }
 
   /* Action buttons */
   .action-row { display: flex; gap: 10px; margin-top: 20px; }
@@ -432,11 +439,11 @@
           <div class="form-grid">
             <div class="form-field">
               <label>Last Order Date</label>
-              <input type="text" id="f-last-order" placeholder="e.g. Jan 15, 2026">
+              <div id="f-last-order" class="date-display"></div>
             </div>
             <div class="form-field">
               <label>Next Order Date</label>
-              <input type="text" id="f-next-order" placeholder="e.g. Apr 15, 2026">
+              <div id="f-next-order" class="date-display"></div>
             </div>
             <div class="form-field full">
               <label>Schedule Notes</label>
@@ -695,8 +702,8 @@ function selectMed(id) {
   document.getElementById('f-prescriber').value = o.prescriberName || '';
   document.getElementById('f-prescriber-phone').value = o.prescriberPhone || '';
   document.getElementById('f-how').value = o.howToOrder || '';
-  document.getElementById('f-last-order').value = o.lastOrderDate || '';
-  document.getElementById('f-next-order').value = o.nextOrderDate || '';
+  document.getElementById('f-last-order').textContent = o.lastOrderDate || '';
+  document.getElementById('f-next-order').textContent = o.nextOrderDate || '';
   document.getElementById('f-schedule-notes').value = o.scheduleNotes || '';
 
   document.getElementById('empty-state').classList.remove('visible');
@@ -719,9 +726,11 @@ function validateForm() {
 }
 
 function clearForm() {
-  ['f-source','f-source-phone','f-source-addr','f-prescriber','f-prescriber-phone','f-how','f-last-order','f-next-order','f-schedule-notes'].forEach(id => {
+  ['f-source','f-source-phone','f-source-addr','f-prescriber','f-prescriber-phone','f-how','f-schedule-notes'].forEach(id => {
     document.getElementById(id).value = '';
   });
+  document.getElementById('f-last-order').textContent = '';
+  document.getElementById('f-next-order').textContent = '';
   validateForm();
 }
 
@@ -734,8 +743,8 @@ async function saveCurrentMed() {
     prescriberName: document.getElementById('f-prescriber').value,
     prescriberPhone: document.getElementById('f-prescriber-phone').value,
     howToOrder: document.getElementById('f-how').value,
-    lastOrderDate: document.getElementById('f-last-order').value,
-    nextOrderDate: document.getElementById('f-next-order').value,
+    lastOrderDate: document.getElementById('f-last-order').textContent,
+    nextOrderDate: document.getElementById('f-next-order').textContent,
     scheduleNotes: document.getElementById('f-schedule-notes').value,
     updatedAt: new Date().toISOString(),
   };
@@ -753,7 +762,7 @@ async function saveCurrentMed() {
 
 async function scheduleReminder() {
   if (!activeMedId) return;
-  const nextText = document.getElementById('f-next-order').value.trim();
+  const nextText = document.getElementById('f-next-order').textContent.trim();
   if (!nextText) { toast('Set a Next Order Date first'); return; }
   const parsed = new Date(nextText);
   if (isNaN(parsed)) { toast('Date not recognized — try e.g. Apr 15, 2026'); return; }
