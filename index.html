@@ -276,7 +276,29 @@
   #cal-date { transition: border-color 0.15s; }
   #cal-date:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
 
-  /* Action buttons */
+  /* Calendar popup */
+  #cal-popup-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45); z-index: 200;
+  }
+  #cal-popup {
+    display: none; position: fixed;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    z-index: 201; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; box-shadow: var(--shadow-lg);
+    width: 300px; flex-direction: column; gap: 14px;
+  }
+  #cal-popup-overlay.open { display: block; }
+  #cal-popup.open { display: flex; }
+  #cal-date {
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: var(--font-body); font-size: 14px; color: var(--text);
+    background: var(--input-bg); outline: none; width: 100%;
+  }
+  #cal-date:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+
+
   .action-row { display: flex; gap: 10px; margin-top: 20px; }
   .btn-primary {
     padding: 9px 20px; border-radius: 8px; border: none;
@@ -453,16 +475,16 @@
       </div>
     </div>
   </div>
-</div>
 
-<!-- Calendar date popup -->
-<div id="cal-popup-overlay" onclick="closeCalPopup()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;"></div>
-<div id="cal-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:201;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;box-shadow:var(--shadow-lg);width:300px;flex-direction:column;gap:16px;">
-  <div style="font-size:14px;font-weight:600;color:var(--text)">Select order date</div>
-  <input type="date" id="cal-date" onchange="syncCalDate()" style="padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:14px;color:var(--text);background:var(--input-bg);outline:none;width:100%;">
-  <div style="display:flex;gap:8px;justify-content:flex-end">
-    <button class="btn-secondary" onclick="closeCalPopup()">Cancel</button>
-    <button class="btn-cal" onclick="confirmCalDate()">Accept</button>
+  <!-- Calendar date popup -->
+  <div id="cal-popup-overlay" onclick="closeCalPopup()"></div>
+  <div id="cal-popup">
+    <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Select order date</div>
+    <input type="date" id="cal-date" onchange="syncCalDate()">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+      <button class="btn-secondary" onclick="closeCalPopup()">Cancel</button>
+      <button class="btn-cal" onclick="confirmCalDate()">Accept</button>
+    </div>
   </div>
 </div>
 
@@ -741,15 +763,15 @@ function clearForm() {
 }
 
 function openCalPopup() {
-  document.getElementById('cal-popup-overlay').style.display = 'block';
-  document.getElementById('cal-popup').style.display = 'flex';
+  document.getElementById('cal-popup-overlay').classList.add('open');
+  document.getElementById('cal-popup').classList.add('open');
   const stored = document.getElementById('f-next-order').textContent.trim();
   if (stored && stored !== '—') document.getElementById('cal-date').value = stored;
 }
 
 function closeCalPopup() {
-  document.getElementById('cal-popup-overlay').style.display = 'none';
-  document.getElementById('cal-popup').style.display = 'none';
+  document.getElementById('cal-popup-overlay').classList.remove('open');
+  document.getElementById('cal-popup').classList.remove('open');
 }
 
 function syncCalDate() {
