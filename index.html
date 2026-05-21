@@ -456,8 +456,8 @@
 </div>
 
 <!-- Calendar date popup -->
-<div id="cal-popup-overlay" onclick="closeCalPopup()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:center;justify-content:center;"></div>
-<div id="cal-popup" style="display:none;position:fixed;z-index:201;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;box-shadow:var(--shadow-lg);min-width:280px;flex-direction:column;gap:16px;">
+<div id="cal-popup-overlay" onclick="closeCalPopup()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;"></div>
+<div id="cal-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:201;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;box-shadow:var(--shadow-lg);width:300px;flex-direction:column;gap:16px;">
   <div style="font-size:14px;font-weight:600;color:var(--text)">Select order date</div>
   <input type="date" id="cal-date" onchange="syncCalDate()" style="padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:14px;color:var(--text);background:var(--input-bg);outline:none;width:100%;">
   <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -741,11 +741,8 @@ function clearForm() {
 }
 
 function openCalPopup() {
-  const overlay = document.getElementById('cal-popup-overlay');
-  const popup = document.getElementById('cal-popup');
-  overlay.style.display = 'block';
-  popup.style.display = 'flex';
-  // pre-fill with existing next order date if set
+  document.getElementById('cal-popup-overlay').style.display = 'block';
+  document.getElementById('cal-popup').style.display = 'flex';
   const stored = document.getElementById('f-next-order').textContent.trim();
   if (stored && stored !== '—') document.getElementById('cal-date').value = stored;
 }
