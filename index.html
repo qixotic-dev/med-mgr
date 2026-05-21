@@ -273,8 +273,6 @@
   .form-field textarea { resize: vertical; min-height: 80px; }
   .date-info { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--text-sub); }
   .date-val { font-weight: 600; color: var(--text); margin-left: 4px; }
-  #cal-date { transition: border-color 0.15s; }
-  #cal-date:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
 
   /* Calendar popup */
   #cal-popup-overlay {
@@ -291,12 +289,21 @@
   }
   #cal-popup-overlay.open { display: block; }
   #cal-popup.open { display: flex; }
-  #cal-date {
-    padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px;
-    font-family: var(--font-body); font-size: 14px; color: var(--text);
-    background: var(--input-bg); outline: none; width: 100%;
+  #cal-popup { width: 310px; }
+
+  /* Calendar grid day cells */
+  .cal-day {
+    padding: 6px 2px; border-radius: 6px; font-size: 12px;
+    cursor: pointer; color: var(--text); font-family: var(--font-body);
+    border: none; background: none; width: 100%;
+    transition: background 0.1s, color 0.1s;
   }
-  #cal-date:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+  .cal-day:hover { background: var(--surface2); }
+  .cal-day.selected { background: var(--blue); color: white; font-weight: 600; }
+  .cal-day.today { font-weight: 700; color: var(--blue); }
+  .cal-day.today.selected { color: white; }
+  .cal-day.other-month { color: var(--text-muted); opacity: 0.45; }
+  .cal-day:disabled { opacity: 0.2; cursor: default; }
 
 
   .action-row { display: flex; gap: 10px; margin-top: 20px; }
@@ -457,10 +464,7 @@
           <h3>Schedule</h3>
           <div class="date-info">
             <span>Last order date: <span id="f-last-order" class="date-val">—</span></span>
-            <span style="display:flex;align-items:center;gap:8px">
-              Next order date: <span id="f-next-order" class="date-val">—</span>
-              <button onclick="openCalPopup()" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;color:var(--text-sub);cursor:pointer;font-family:var(--font-body);transition:all 0.15s;line-height:1.4" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--surface2)'">📅 Set date</button>
-            </span>
+            <span>Next order date: <span id="f-next-order" class="date-val">—</span></span>
           </div>
           <div class="form-grid" style="margin-top:14px">
             <div class="form-field full">
@@ -482,11 +486,35 @@
   <!-- Calendar date popup -->
   <div id="cal-popup-overlay" onclick="closeCalPopup()"></div>
   <div id="cal-popup">
-    <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Select order date</div>
-    <input type="date" id="cal-date" onchange="syncCalDate()">
+    <div style="font-size:14px;font-weight:600;color:var(--text)">Select order date</div>
+
+    <!-- Month nav -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+      <button onclick="calNav(-1)" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-sub);padding:4px 8px;border-radius:6px;line-height:1" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">‹</button>
+      <span id="cal-month-label" style="font-size:13px;font-weight:600;color:var(--text)"></span>
+      <button onclick="calNav(1)"  style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-sub);padding:4px 8px;border-radius:6px;line-height:1" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">›</button>
+    </div>
+
+    <!-- Day-of-week headers -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">
+      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Su</span>
+      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Mo</span>
+      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Tu</span>
+      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">We</span>
+      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Th</span>
+      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Fr</span>
+      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Sa</span>
+    </div>
+
+    <!-- Day grid -->
+    <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center"></div>
+
+    <!-- Selected date display -->
+    <div id="cal-selected-display" style="font-size:12px;color:var(--text-sub);text-align:center;min-height:16px"></div>
+
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
       <button class="btn-secondary" onclick="closeCalPopup()">Cancel</button>
-      <button class="btn-cal" onclick="confirmCalDate()">Accept</button>
+      <button class="btn-cal" id="cal-accept-btn" onclick="confirmCalDate()" disabled>Accept</button>
     </div>
   </div>
 </div>
@@ -733,7 +761,7 @@ function selectMed(id) {
   document.getElementById('f-how').value = o.howToOrder || '';
   document.getElementById('f-last-order').textContent = o.lastOrderDate || '—';
   document.getElementById('f-next-order').textContent = o.nextOrderDate || '—';
-  document.getElementById('cal-date').value = o.nextOrderDate || '';
+  calSelectedISO = o.nextOrderDate || null;
   document.getElementById('f-schedule-notes').value = o.scheduleNotes || '';
 
   document.getElementById('empty-state').classList.remove('visible');
@@ -761,15 +789,30 @@ function clearForm() {
   });
   document.getElementById('f-last-order').textContent = '—';
   document.getElementById('f-next-order').textContent = '—';
-  document.getElementById('cal-date').value = '';
+  calSelectedISO = null;
   validateForm();
 }
+
+// ── Calendar picker state ─────────────────────────────────────────────────────
+let calYear, calMonth, calSelectedISO = null;
 
 function openCalPopup() {
   document.getElementById('cal-popup-overlay').classList.add('open');
   document.getElementById('cal-popup').classList.add('open');
+  // Pre-select existing next order date if set
   const stored = document.getElementById('f-next-order').textContent.trim();
-  if (stored && stored !== '—') document.getElementById('cal-date').value = stored;
+  if (stored && stored !== '—') {
+    calSelectedISO = stored;
+    const d = new Date(stored + 'T00:00:00');
+    calYear = d.getFullYear();
+    calMonth = d.getMonth();
+  } else {
+    calSelectedISO = null;
+    const now = new Date();
+    calYear = now.getFullYear();
+    calMonth = now.getMonth();
+  }
+  renderCalGrid();
 }
 
 function closeCalPopup() {
@@ -777,16 +820,86 @@ function closeCalPopup() {
   document.getElementById('cal-popup').classList.remove('open');
 }
 
-function syncCalDate() {
-  const val = document.getElementById('cal-date').value;
-  document.getElementById('f-next-order').textContent = val || '—';
+function calNav(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  renderCalGrid();
+}
+
+function renderCalGrid() {
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('cal-month-label').textContent = `${MONTHS[calMonth]} ${calYear}`;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const daysInPrev  = new Date(calYear, calMonth, 0).getDate();
+
+  let html = '';
+  // Leading days from prev month
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = daysInPrev - i;
+    const iso = isoDate(calYear, calMonth - 1, d);
+    html += dayBtn(d, iso, 'other-month', today);
+  }
+  // Current month days
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = isoDate(calYear, calMonth, d);
+    html += dayBtn(d, iso, '', today);
+  }
+  // Trailing days
+  const total = firstDay + daysInMonth;
+  const trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let d = 1; d <= trailing; d++) {
+    const iso = isoDate(calYear, calMonth + 1, d);
+    html += dayBtn(d, iso, 'other-month', today);
+  }
+
+  document.getElementById('cal-grid').innerHTML = html;
+
+  // Update selected display & accept button
+  const disp = document.getElementById('cal-selected-display');
+  const btn  = document.getElementById('cal-accept-btn');
+  if (calSelectedISO) {
+    const [y,m,d] = calSelectedISO.split('-').map(Number);
+    disp.textContent = new Date(y, m-1, d).toLocaleDateString('en-US', { weekday:'short', month:'long', day:'numeric', year:'numeric' });
+    btn.disabled = false;
+  } else {
+    disp.textContent = '';
+    btn.disabled = true;
+  }
+}
+
+function isoDate(year, month, day) {
+  // Normalise month overflow/underflow
+  const d = new Date(year, month, day);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function dayBtn(label, iso, extraClass, today) {
+  const isToday    = iso === isoDate(today.getFullYear(), today.getMonth(), today.getDate());
+  const isSelected = iso === calSelectedISO;
+  const cls = ['cal-day', extraClass, isToday ? 'today' : '', isSelected ? 'selected' : ''].filter(Boolean).join(' ');
+  return `<button class="${cls}" onclick="calSelectDay('${iso}')">${label}</button>`;
+}
+
+function calSelectDay(iso) {
+  calSelectedISO = iso;
+  // If user clicked a day in adjacent month, navigate there
+  const [y, m] = iso.split('-').map(Number);
+  calYear = y; calMonth = m - 1;
+  renderCalGrid();
 }
 
 async function confirmCalDate() {
-  syncCalDate();
+  if (!calSelectedISO) return;
+  document.getElementById('f-next-order').textContent = calSelectedISO;
   closeCalPopup();
   await scheduleReminder();
 }
+
+function syncCalDate() { /* no-op — kept for compatibility */ }
 
 async function saveCurrentMed() {
   if (!activeMedId) return;
@@ -798,7 +911,7 @@ async function saveCurrentMed() {
     prescriberPhone: document.getElementById('f-prescriber-phone').value,
     howToOrder: document.getElementById('f-how').value,
     lastOrderDate: document.getElementById('f-last-order').textContent.replace('—','').trim(),
-    nextOrderDate: document.getElementById('cal-date').value,
+    nextOrderDate: document.getElementById('f-next-order').textContent.replace('—','').trim(),
     scheduleNotes: document.getElementById('f-schedule-notes').value,
     updatedAt: new Date().toISOString(),
   };
@@ -816,7 +929,7 @@ async function saveCurrentMed() {
 
 async function scheduleReminder() {
   if (!activeMedId) return;
-  const isoDate = document.getElementById('cal-date').value;
+  const isoDate = document.getElementById('f-next-order').textContent.replace('—','').trim();
   if (!isoDate) { toast('Pick a date first'); return; }
   const med = MEDICATIONS.find(m => m.id === activeMedId);
   const event = {
