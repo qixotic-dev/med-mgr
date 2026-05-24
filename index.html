@@ -356,6 +356,45 @@
     .form-grid { grid-template-columns: 1fr; }
     .form-field.full { grid-column: 1; }
   }
+
+  /* ── Clinical Notes panel ── */
+  #clinical-notes-panel {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  #clinical-notes-toggle {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 24px; cursor: pointer; user-select: none;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-muted);
+    transition: color 0.15s;
+    background: none; border: none; width: 100%; text-align: left;
+    font-family: var(--font-body);
+  }
+  #clinical-notes-toggle:hover { color: var(--text-sub); }
+  #clinical-notes-toggle .notes-chevron {
+    display: inline-flex; transition: transform 0.2s;
+    color: var(--text-muted);
+  }
+  #clinical-notes-panel.open .notes-chevron { transform: rotate(90deg); }
+  #clinical-notes-toggle .warn-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: #d97706; flex-shrink: 0;
+  }
+  #clinical-notes-body {
+    display: none; padding: 0 24px 16px;
+  }
+  #clinical-notes-panel.open #clinical-notes-body { display: block; }
+  .clinical-note {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 8px 12px; border-radius: 8px; margin-bottom: 6px;
+    background: #fffbeb; border-left: 3px solid #d97706;
+    font-size: 12px; color: #78350f; line-height: 1.5;
+    transition: background 0.2s;
+  }
+  [data-theme="dark"] .clinical-note { background: #3b2200; border-left-color: #f59e0b; color: #fde68a; }
+  .clinical-note .note-icon { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
 </style>
 </head>
 <body>
@@ -480,6 +519,22 @@
           <button class="btn-cal" style="margin-left:auto" onclick="openCalPopup()">📅 Add to Calendar</button>
         </div>
       </div>
+
+      <!-- Clinical Notes panel -->
+      <div id="clinical-notes-panel">
+        <button id="clinical-notes-toggle" onclick="toggleClinicalNotes()">
+          <span class="notes-chevron"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px"><polyline points="4,2 10,7 4,12"/></svg></span>
+          <span class="warn-dot"></span>
+          Clinical Notes &amp; Interactions
+        </button>
+        <div id="clinical-notes-body">
+          <div class="clinical-note"><span class="note-icon">⚠️</span><span><strong>ADT Therapy (Lupron/Firmagon):</strong> Requires enhanced cardiovascular monitoring. Increased cardiovascular risk with androgen deprivation therapy.</span></div>
+          <div class="clinical-note"><span class="note-icon">⚠️</span><span><strong>Rosuvastatin + Darolutamide (Nubeqa):</strong> Darolutamide inhibits BCRP/OATP1B1 transporters, significantly increasing rosuvastatin exposure. Dose capped at 5mg. Monitor for myopathy (muscle pain, weakness, dark urine).</span></div>
+          <div class="clinical-note"><span class="note-icon">⚠️</span><span><strong>Tolterodine:</strong> Primary contributor to constipation; cumulative anticholinergic effect with other medications in this regimen.</span></div>
+          <div class="clinical-note"><span class="note-icon">⚠️</span><span><strong>XGEVA (Denosumab):</strong> Requires calcium supplementation. Monitor for hypocalcemia — symptoms include muscle cramps, numbness, tetany.</span></div>
+          <div class="clinical-note"><span class="note-icon">⚠️</span><span><strong>Aspirin (antiplatelet therapy):</strong> Monitor for GI or unusual bleeding. Combined with other medications, bleeding risk is elevated.</span></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -531,7 +586,6 @@ const DRIVE_FILE_NAME = 'richard_medication_orders.json';
 const MEDICATIONS = [
   { id: 'rosuvastatin',   name: 'Rosuvastatin',        dose: '5mg',          category: 'Cardiac',     intervalDays: 90 },
   { id: 'amlodipine',     name: 'Amlodipine',          dose: '2.5mg',        category: 'Cardiac',     intervalDays: 90 },
-  { id: 'clopidogrel',    name: 'Clopidogrel',         dose: '75mg',         category: 'Cardiac',     intervalDays: 90 },
   { id: 'aspirin',        name: 'Aspirin',              dose: '81mg',         category: 'Cardiac',     intervalDays: 90 },
   { id: 'metoprolol',     name: 'Metoprolol',           dose: '50mg',         category: 'Cardiac',     intervalDays: 90 },
   { id: 'lupron',         name: 'Lupron',               dose: 'q3 months',    category: 'Oncology',    intervalDays: 90 },
@@ -953,6 +1007,10 @@ function toast(msg) {
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function toggleClinicalNotes() {
+  document.getElementById('clinical-notes-panel').classList.toggle('open');
 }
 </script>
 </body>
