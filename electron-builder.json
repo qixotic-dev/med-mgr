@@ -1,0 +1,53 @@
+{
+  "appId": "com.qixotic.rxordermanager",
+  "productName": "Rx Order Manager",
+  "artifactName": "${productName}-${version}-${arch}.${ext}",
+  "files": [
+    "main.js",
+    "preload.js",
+    "index.html",
+    "package.json",
+    "assets/**",
+    "node_modules/"
+  ],
+  "publish": {
+    "provider": "github",
+    "owner": "qixotic-dev",
+    "repo": "med-manager-desktop"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64",
+          "ia32"
+        ]
+      },
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "certificateFile": null,
+    "certificatePassword": null,
+    "signingHashAlgorithms": [
+      "sha256"
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Rx Order Manager"
+  },
+  "portable": {
+    "artifactName": "${productName}-${version}-portable.${ext}"
+  },
+  "directories": {
+    "buildResources": "assets"
+  }
+}

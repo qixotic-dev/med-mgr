@@ -1,0 +1,29 @@
+{
+  "name": "rx-order-manager",
+  "version": "1.0.0",
+  "description": "Desktop app for tracking prescription orders and pharmacy management",
+  "main": "main.js",
+  "homepage": "https://github.com/qixotic-dev/med-manager-desktop",
+  "author": "Qixotic",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "cross-env NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder -w",
+    "build:mac": "electron-builder -m",
+    "build:linux": "electron-builder -l",
+    "pack": "electron-builder --dir",
+    "publish": "electron-builder -p always"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.1.4",
+    "open": "^9.1.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  }
+}

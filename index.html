@@ -3,8 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Rx Order Manager</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -88,6 +86,7 @@
     transition: transform 0.15s, box-shadow 0.15s;
   }
   #sign-in-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+  #sign-in-btn:disabled { opacity: 0.6; cursor: not-allowed; }
   #sign-in-btn img { width: 20px; height: 20px; }
 
   /* ── App shell ── */
@@ -185,628 +184,528 @@
   .status-due { color: var(--red); }
   .status-empty { color: var(--text-muted); }
 
-  /* Category badges */
-  .cat-badge {
-    display: inline-block; padding: 2px 8px; border-radius: 20px;
-    font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
-  }
-  .cat-Cardiac { background: #fef2f2; color: #991b1b; }
-  .cat-Oncology { background: #fdf4ff; color: #6b21a8; }
-  .cat-Mental { background: #eff6ff; color: #1d4ed8; }
-  .cat-Urologic { background: #ecfdf5; color: #065f46; }
-  .cat-GI { background: #fff7ed; color: #9a3412; }
-  .cat-Respiratory { background: #f0f9ff; color: #0369a1; }
-  .cat-Dental { background: #f8fafc; color: #475569; }
-  .cat-BoneHealth { background: #fefce8; color: #854d0e; }
-  [data-theme="dark"] .cat-Cardiac { background: #3b0c0c; color: #fca5a5; }
-  [data-theme="dark"] .cat-Oncology { background: #2e0a3d; color: #d8b4fe; }
-  [data-theme="dark"] .cat-Mental { background: #1c2a4a; color: #93c5fd; }
-  [data-theme="dark"] .cat-Urologic { background: #052e16; color: #6ee7b7; }
-  [data-theme="dark"] .cat-GI { background: #431407; color: #fdba74; }
-  [data-theme="dark"] .cat-Respiratory { background: #082f49; color: #7dd3fc; }
-  [data-theme="dark"] .cat-Dental { background: #21262d; color: #8b949e; }
-  [data-theme="dark"] .cat-BoneHealth { background: #3b2b00; color: #fde68a; }
-
-  /* Right detail */
-  #right { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); transition: background 0.2s; }
-  #empty-state {
-    display: none; flex-direction: column; align-items: center; justify-content: center;
-    height: 100%; gap: 12px; color: var(--text-muted);
-  }
-  #empty-state.visible { display: flex; }
-  #empty-state .icon { font-size: 48px; opacity: 0.4; }
-  #empty-state p { font-size: 14px; }
+  /* Right panel */
+  #right { flex: 1; background: var(--surface); display: flex; flex-direction: column; overflow: hidden; transition: background 0.2s; }
 
   /* Detail header */
-  #detail-header {
-    display: none; padding: 16px 24px; border-bottom: 1px solid var(--border);
-    align-items: center; gap: 12px; background: var(--surface);
-    flex-shrink: 0; transition: background 0.2s, border-color 0.2s;
-  }
-  #detail-header.visible { display: flex; }
-  #detail-title { font-family: var(--font-display); font-size: 22px; color: var(--text); }
-  #detail-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-  #detail-dose { font-size: 13px; color: var(--text-sub); }
+  #detail-header { display: none; padding: 20px 24px; border-bottom: 1px solid var(--border); background: var(--surface); transition: background 0.2s; }
+  #detail-header.visible { display: block; }
+  #detail-header h2 { font-family: var(--font-display); font-size: 24px; margin-bottom: 2px; }
+  #detail-header .dose { font-size: 13px; color: var(--text-sub); }
 
-  /* Schedule badge in header */
-  #schedule-badge {
-    margin-left: auto; padding: 6px 14px; border-radius: 8px;
-    font-size: 12px; font-weight: 600; white-space: nowrap;
-  }
-  .sched-ok { background: var(--green-light); color: var(--green); }
-  .sched-soon { background: #fffbeb; color: #d97706; }
-  [data-theme="dark"] .sched-soon { background: #451a03; color: #fbbf24; }
-  .sched-due { background: #fef2f2; color: var(--red); }
-  [data-theme="dark"] .sched-due { background: #3b0c0c; color: #fca5a5; }
-  .sched-empty { background: var(--surface2); color: var(--text-muted); }
-
-  /* Form area */
-  #detail-body {
-    display: none; flex: 1; overflow-y: auto; padding: 24px;
-  }
+  /* Detail body */
+  #detail-body { display: none; flex: 1; overflow-y: auto; padding: 24px; }
   #detail-body.visible { display: block; }
 
-  .form-section { margin-bottom: 28px; }
-  .form-section h3 {
-    font-size: 11px; font-weight: 700; color: var(--text-muted);
-    text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px;
-    padding-bottom: 8px; border-bottom: 1px solid var(--border);
-    transition: color 0.2s, border-color 0.2s;
-  }
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .form-field { display: flex; flex-direction: column; gap: 5px; }
-  .form-field.full { grid-column: 1 / -1; }
-  .form-field label { font-size: 11px; font-weight: 600; color: var(--text-sub); }
-  .form-field label .req { color: var(--red); margin-left: 2px; }
-  .btn-primary:disabled {
-    background: var(--border); color: var(--text-muted); cursor: not-allowed;
-    transform: none; box-shadow: none; opacity: 0.7;
-  }
-  .form-field input, .form-field textarea, .form-field select {
-    padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px;
-    font-family: var(--font-body); font-size: 13px; color: var(--text);
-    background: var(--input-bg); outline: none; transition: all 0.15s;
-  }
-  .form-field input:focus, .form-field textarea:focus, .form-field select:focus {
-    border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
-  }
+  /* Form fields */
+  .form-field { margin-bottom: 20px; }
+  .form-field label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-sub); margin-bottom: 6px; }
+  .form-field label .required { color: var(--red); }
+  .form-field input,
+  .form-field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-body); font-size: 13px; background: var(--input-bg); color: var(--text); transition: border 0.2s; }
+  .form-field input:focus,
+  .form-field textarea:focus { outline: none; border-color: var(--blue); }
   .form-field textarea { resize: vertical; min-height: 80px; }
-  .date-info { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--text-sub); }
-  .date-val { font-weight: 600; color: var(--text); margin-left: 4px; }
 
-  /* Calendar popup */
-  #cal-popup-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.45); z-index: 200;
-  }
-  #cal-popup {
-    display: none; position: fixed;
-    top: 50%; left: 50%; transform: translate(-50%, -50%);
-    z-index: 201; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 12px;
-    padding: 24px; box-shadow: var(--shadow-lg);
-    width: 300px; flex-direction: column; gap: 14px;
-  }
+  /* Schedule date button */
+  #btn-pick-date { padding: 10px 16px; background: var(--blue); color: white; border: none; border-radius: 6px; cursor: pointer; font-family: var(--font-body); font-size: 13px; font-weight: 600; transition: background 0.2s; }
+  #btn-pick-date:hover { background: #1d4ed8; }
+
+  /* Save button */
+  #btn-save { padding: 10px 24px; background: var(--green); color: white; border: none; border-radius: 6px; cursor: pointer; font-family: var(--font-body); font-size: 13px; font-weight: 600; transition: background 0.2s; }
+  #btn-save:hover:not(:disabled) { background: #15803d; }
+  #btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Empty state */
+  #empty-state { display: none; flex: 1; align-items: center; justify-content: center; }
+  #empty-state.visible { display: flex; }
+  #empty-state-content { text-align: center; }
+  #empty-state-content h3 { font-size: 18px; margin-bottom: 8px; }
+  #empty-state-content p { font-size: 13px; color: var(--text-sub); }
+
+  /* Schedule badge */
+  .schedule-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .sched-ok { background: var(--green-light); color: var(--green); }
+  .sched-soon { background: #fef3c7; color: #92400e; }
+  .sched-due { background: #fee2e2; color: var(--red); }
+  .sched-empty { background: var(--surface2); color: var(--text-muted); }
+  [data-theme="dark"] .sched-soon { background: #78350f; color: #fcd34d; }
+  [data-theme="dark"] .sched-due { background: #7f1d1d; color: #fca5a5; }
+
+  /* Calendar modal */
+  #cal-popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.2); display: none; z-index: 100; }
   #cal-popup-overlay.open { display: block; }
+  #cal-popup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--surface); border-radius: 12px; padding: 24px; box-shadow: var(--shadow-lg); width: 90%; max-width: 400px; z-index: 101; display: none; flex-direction: column; }
   #cal-popup.open { display: flex; }
-  #cal-popup { width: 310px; }
-
-  /* Calendar grid day cells */
-  .cal-day {
-    padding: 6px 2px; border-radius: 6px; font-size: 12px;
-    cursor: pointer; color: var(--text); font-family: var(--font-body);
-    border: none; background: none; width: 100%;
-    transition: background 0.1s, color 0.1s;
-  }
+  #cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  #cal-month-label { font-size: 16px; font-weight: 600; }
+  .cal-nav-btn { background: transparent; border: none; color: var(--blue); cursor: pointer; font-size: 18px; }
+  #cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 16px; }
+  .cal-day { padding: 8px; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer; font-size: 12px; transition: all 0.15s; }
   .cal-day:hover { background: var(--surface2); }
-  .cal-day.selected { background: var(--blue); color: white; font-weight: 600; }
-  .cal-day.today { font-weight: 700; color: var(--blue); }
-  .cal-day.today.selected { color: white; }
-  .cal-day.other-month { color: var(--text-muted); opacity: 0.45; }
-  .cal-day:disabled { opacity: 0.2; cursor: default; }
-
-
-  .action-row { display: flex; gap: 10px; margin-top: 20px; }
-  .btn-primary {
-    padding: 9px 20px; border-radius: 8px; border: none;
-    background: var(--blue); color: white; cursor: pointer;
-    font-family: var(--font-body); font-size: 13px; font-weight: 600;
-    transition: all 0.15s;
-  }
-  .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
-  .btn-secondary {
-    padding: 9px 20px; border-radius: 8px;
-    border: 1px solid var(--border); background: var(--surface);
-    color: var(--text-sub); cursor: pointer; font-family: var(--font-body);
-    font-size: 13px; font-weight: 500; transition: all 0.15s;
-  }
-  .btn-secondary:hover { background: var(--surface2); }
-  .btn-cal {
-    padding: 9px 20px; border-radius: 8px; border: none;
-    background: var(--green-light); color: var(--green); cursor: pointer;
-    font-family: var(--font-body); font-size: 13px; font-weight: 600;
-    transition: all 0.15s; margin-left: auto;
-  }
-  .btn-cal:hover { filter: brightness(0.95); }
+  .cal-day.today { font-weight: 600; border-color: var(--blue); }
+  .cal-day.selected { background: var(--blue); color: white; border-color: var(--blue); }
+  .cal-day.other-month { color: var(--text-muted); }
+  #cal-selected-display { font-size: 13px; color: var(--text-sub); margin-bottom: 12px; min-height: 18px; }
+  #cal-actions { display: flex; gap: 8px; }
+  #cal-accept-btn, #cal-cancel-btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-family: var(--font-body); font-size: 13px; font-weight: 600; transition: background 0.2s; }
+  #cal-accept-btn { background: var(--blue); color: white; flex: 1; }
+  #cal-accept-btn:hover:not(:disabled) { background: #1d4ed8; }
+  #cal-accept-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #cal-cancel-btn { background: var(--surface2); color: var(--text); flex: 1; }
+  #cal-cancel-btn:hover { background: var(--border); }
 
   /* Toast */
-  #toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
-    background: var(--gray900); color: var(--surface);
-    padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 500;
-    box-shadow: var(--shadow-lg); transition: transform 0.3s; z-index: 999;
-    pointer-events: none; white-space: nowrap;
-  }
-  #toast.show { transform: translateX(-50%) translateY(0); }
-
-  /* Saving bar */
-  #saving-bar {
-    display: none; background: var(--navy); color: white;
-    padding: 8px 20px; font-size: 12px; text-align: center; flex-shrink: 0;
-  }
-  #saving-bar.visible { display: block; }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
-  @media (max-width: 600px) {
-    #left { width: 190px; }
-    .form-grid { grid-template-columns: 1fr; }
-    .form-field.full { grid-column: 1; }
-  }
-
-  /* ── Clinical Notes panel ── */
-  #clinical-notes-panel {
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-    flex-shrink: 0;
-    transition: background 0.2s, border-color 0.2s;
-  }
-  #clinical-notes-toggle {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 24px; cursor: pointer; user-select: none;
-    font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.8px; color: var(--text-muted);
-    transition: color 0.15s;
-    background: none; border: none; width: 100%; text-align: left;
-    font-family: var(--font-body);
-  }
-  #clinical-notes-toggle:hover { color: var(--text-sub); }
-  #clinical-notes-toggle .notes-chevron {
-    display: inline-flex; transition: transform 0.2s;
-    color: var(--text-muted);
-  }
-  #clinical-notes-panel.open .notes-chevron { transform: rotate(90deg); }
-  #clinical-notes-toggle .warn-dot {
-    width: 7px; height: 7px; border-radius: 50%; background: #d97706; flex-shrink: 0;
-  }
-  #clinical-notes-body {
-    display: none; padding: 0 24px 16px;
-  }
-  #clinical-notes-panel.open #clinical-notes-body { display: block; }
-  .clinical-note {
-    display: flex; gap: 10px; align-items: flex-start;
-    padding: 8px 12px; border-radius: 8px; margin-bottom: 6px;
-    background: #fffbeb; border-left: 3px solid #d97706;
-    font-size: 12px; color: #78350f; line-height: 1.5;
-    transition: background 0.2s;
-  }
-  [data-theme="dark"] .clinical-note { background: #3b2200; border-left-color: #f59e0b; color: #fde68a; }
-  .clinical-note .note-icon { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+  #toast { position: fixed; bottom: 20px; right: 20px; background: #1f2937; color: white; padding: 12px 16px; border-radius: 6px; font-size: 13px; box-shadow: var(--shadow-lg); opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 1000; }
+  #toast.show { opacity: 1; pointer-events: auto; }
 </style>
 </head>
 <body>
 
-<!-- Auth screen -->
+<!-- Auth Screen -->
 <div id="auth-screen">
-  <div style="font-size:48px">💊</div>
   <h1>Rx Order Manager</h1>
-  <p>Medication sources, ordering instructions, and schedules — backed by Google Drive</p>
-  <button id="sign-in-btn">
-    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
-    Sign in with Google
-  </button>
+  <p>Track prescriptions and manage pharmacy orders</p>
+  <button id="sign-in-btn">Sign in with Google</button>
 </div>
 
-<!-- Main app -->
+<!-- Main App -->
 <div id="app">
-  <div id="toast"></div>
-
   <!-- Header -->
   <div id="header">
-    <div style="font-size:22px">💊</div>
-    <div style="flex:1">
+    <div style="flex: 1;">
       <h1>Rx Order Manager</h1>
-      <div class="sub" id="header-sub">Loading…</div>
+      <div class="sub" id="header-sub"></div>
     </div>
-    <button id="dark-toggle" onclick="toggleDark()">🌙 Dark</button>
+    <button id="dark-toggle">🌙 Dark</button>
     <button id="sign-out-btn">Sign out</button>
   </div>
 
-  <!-- Saving bar -->
-  <div id="saving-bar">Saving to Google Drive…</div>
-
   <!-- Body -->
   <div id="body">
-
-    <!-- Left: med list -->
+    <!-- Left Sidebar -->
     <div id="left">
       <div id="med-list"></div>
     </div>
 
-    <!-- Right: detail -->
+    <!-- Right Panel -->
     <div id="right">
+      <!-- Empty State -->
       <div id="empty-state" class="visible">
-        <div class="icon">💊</div>
-        <p>Select a medication to view or edit its ordering details</p>
+        <div id="empty-state-content">
+          <h3>Select a medication</h3>
+          <p>Choose from the list to view and manage order details</p>
+        </div>
       </div>
 
-      <!-- Frozen header -->
+      <!-- Detail Header -->
       <div id="detail-header">
-        <div style="flex:1;min-width:0">
-          <div id="detail-title"></div>
-          <div id="detail-meta">
-            <span id="detail-badge" class="cat-badge"></span>
-            <span id="detail-dose"></span>
-          </div>
-        </div>
-        <div id="schedule-badge" class="sched-empty">No schedule set</div>
+        <h2 id="detail-name"></h2>
+        <div class="dose" id="detail-dose"></div>
       </div>
 
-      <!-- Scrollable form body -->
+      <!-- Detail Body -->
       <div id="detail-body">
-        <div class="form-section">
-          <h3>Source / Pharmacy</h3>
-          <div class="form-grid">
-            <div class="form-field full">
-              <label>Pharmacy / Source Name <span class="req">*</span></label>
-              <input type="text" id="f-source" placeholder="e.g. CVS, mail-order specialty pharmacy" oninput="validateForm()">
-            </div>
-            <div class="form-field">
-              <label>Phone <span class="req">*</span></label>
-              <input type="tel" id="f-source-phone" placeholder="(555) 555-5555" oninput="validateForm()">
-            </div>
-            <div class="form-field">
-              <label>Address / Notes</label>
-              <input type="text" id="f-source-addr" placeholder="123 Main St or online">
-            </div>
+        <div class="form-field">
+          <label>Pharmacy Name <span class="required">*</span></label>
+          <input type="text" id="f-source" placeholder="Name of pharmacy">
+        </div>
+        
+        <div class="form-field">
+          <label>Pharmacy Phone <span class="required">*</span></label>
+          <input type="text" id="f-source-phone" placeholder="(555) 123-4567">
+        </div>
+
+        <div class="form-field">
+          <label>Pharmacy Address</label>
+          <textarea id="f-source-addr" placeholder="Street address, city, state, zip"></textarea>
+        </div>
+
+        <div class="form-field">
+          <label>Prescriber Name <span class="required">*</span></label>
+          <input type="text" id="f-prescriber" placeholder="Dr. Name or clinic">
+        </div>
+
+        <div class="form-field">
+          <label>Prescriber Phone <span class="required">*</span></label>
+          <input type="text" id="f-prescriber-phone" placeholder="(555) 123-4567">
+        </div>
+
+        <div class="form-field">
+          <label>How to Order</label>
+          <textarea id="f-how" placeholder="Steps to order this medication..."></textarea>
+        </div>
+
+        <div class="form-field">
+          <label>Last Order Date</label>
+          <div id="f-last-order" style="padding: 10px 12px; background: var(--surface2); border-radius: 6px; font-size: 13px;">—</div>
+        </div>
+
+        <div class="form-field">
+          <label>Next Order Date</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <div id="f-next-order" style="flex: 1; padding: 10px 12px; background: var(--surface2); border-radius: 6px; font-size: 13px;">—</div>
+            <button id="btn-pick-date">Pick date</button>
           </div>
         </div>
 
-        <div class="form-section">
-          <h3>Prescriber</h3>
-          <div class="form-grid">
-            <div class="form-field">
-              <label>Prescriber Name <span class="req">*</span></label>
-              <input type="text" id="f-prescriber" placeholder="Dr. Smith" oninput="validateForm()">
-            </div>
-            <div class="form-field">
-              <label>Prescriber Phone <span class="req">*</span></label>
-              <input type="tel" id="f-prescriber-phone" placeholder="(555) 555-5555" oninput="validateForm()">
-            </div>
-          </div>
+        <div class="form-field">
+          <label>Schedule Notes</label>
+          <textarea id="f-schedule-notes" placeholder="Any additional notes..."></textarea>
         </div>
 
-        <div class="form-section">
-          <h3>Ordering Process</h3>
-          <div class="form-grid">
-            <div class="form-field full">
-              <label>How to Order (step-by-step instructions)</label>
-              <textarea id="f-how" placeholder="e.g. Call CVS 2 weeks before refill date, give Rx #12345, request 90-day supply…"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <div class="form-section">
-          <h3>Schedule</h3>
-          <div class="date-info">
-            <span>Last order date: <span id="f-last-order" class="date-val">—</span></span>
-            <span>Next order date: <span id="f-next-order" class="date-val">—</span></span>
-          </div>
-          <div class="form-grid" style="margin-top:14px">
-            <div class="form-field full">
-              <label>Schedule Notes</label>
-              <textarea id="f-schedule-notes" placeholder="e.g. 90-day supply, order 2 weeks early…" style="min-height:60px"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <div class="action-row">
-          <button class="btn-primary" id="btn-save" onclick="saveCurrentMed()" disabled>💾 Save to Drive</button>
-          <button class="btn-secondary" onclick="clearForm()">Reset</button>
-          <button class="btn-cal" style="margin-left:auto" onclick="openCalPopup()">📅 Add to Calendar</button>
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+          <button id="btn-save" style="flex: 1;">Save</button>
         </div>
       </div>
-
-      <!-- Clinical Notes panel -->
-      <div id="clinical-notes-panel">
-        <button id="clinical-notes-toggle" onclick="toggleClinicalNotes()">
-          <span class="notes-chevron"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px"><polyline points="4,2 10,7 4,12"/></svg></span>
-          <span class="warn-dot"></span>
-          Clinical Notes &amp; Interactions
-        </button>
-        <div id="clinical-notes-body">
-          <div class="clinical-note"><span class="note-icon">⚠️</span><span><strong>ADT Therapy (Lupron/Firmagon):</strong> Requires enhanced cardiovascular monitoring. Increased cardiovascular risk with androgen deprivation therapy.</span></div>
-          <div class="clinical-note"><span class="note-icon">⚠️</span><span><strong>Rosuvastatin + Darolutamide (Nubeqa):</strong> Darolutamide inhibits BCRP/OATP1B1 transporters, significantly increasing rosuvastatin exposure. Dose capped at 5mg. Monitor for myopathy (muscle pain, weakness, dark urine).</span></div>
-          <div class="clinical-note"><span class="note-icon">⚠️</span><span><strong>Tolterodine:</strong> Primary contributor to constipation; cumulative anticholinergic effect with other medications in this regimen.</span></div>
-          <div class="clinical-note"><span class="note-icon">⚠️</span><span><strong>XGEVA (Denosumab):</strong> Requires calcium supplementation. Monitor for hypocalcemia — symptoms include muscle cramps, numbness, tetany.</span></div>
-          <div class="clinical-note"><span class="note-icon">⚠️</span><span><strong>Aspirin (antiplatelet therapy):</strong> Monitor for GI or unusual bleeding. Combined with other medications, bleeding risk is elevated.</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Calendar date popup -->
-  <div id="cal-popup-overlay" onclick="closeCalPopup()"></div>
-  <div id="cal-popup">
-    <div style="font-size:14px;font-weight:600;color:var(--text)">Select order date</div>
-
-    <!-- Month nav -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
-      <button onclick="calNav(-1)" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-sub);padding:4px 8px;border-radius:6px;line-height:1" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">‹</button>
-      <span id="cal-month-label" style="font-size:13px;font-weight:600;color:var(--text)"></span>
-      <button onclick="calNav(1)"  style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-sub);padding:4px 8px;border-radius:6px;line-height:1" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">›</button>
-    </div>
-
-    <!-- Day-of-week headers -->
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">
-      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Su</span>
-      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Mo</span>
-      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Tu</span>
-      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">We</span>
-      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Th</span>
-      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Fr</span>
-      <span style="font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">Sa</span>
-    </div>
-
-    <!-- Day grid -->
-    <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center"></div>
-
-    <!-- Selected date display -->
-    <div id="cal-selected-display" style="font-size:12px;color:var(--text-sub);text-align:center;min-height:16px"></div>
-
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
-      <button class="btn-secondary" onclick="closeCalPopup()">Cancel</button>
-      <button class="btn-cal" id="cal-accept-btn" onclick="confirmCalDate()" disabled>Accept</button>
     </div>
   </div>
 </div>
 
-<!-- Google Identity Services -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- Calendar Modal -->
+<div id="cal-popup-overlay"></div>
+<div id="cal-popup">
+  <div id="cal-header">
+    <button id="cal-nav-prev" class="cal-nav-btn">◀</button>
+    <div id="cal-month-label"></div>
+    <button id="cal-nav-next" class="cal-nav-btn">▶</button>
+  </div>
+  <div id="cal-grid"></div>
+  <div id="cal-selected-display"></div>
+  <div id="cal-actions">
+    <button id="cal-cancel-btn">Cancel</button>
+    <button id="cal-accept-btn">Accept</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
 
 <script>
-// ── Config ──────────────────────────────────────────────────────────────────
-const CLIENT_ID = '972705955264-1r2bivpb0ece9bvvs8vbe0tuklru9761.apps.googleusercontent.com';
-const DRIVE_FILE_NAME = 'richard_medication_orders.json';
+// ─────────────────────────────────────────────────────────────────
+// Medication Database
+// ─────────────────────────────────────────────────────────────────
 
-// ── Medications master list ──────────────────────────────────────────────────
 const MEDICATIONS = [
-  { id: 'rosuvastatin',   name: 'Rosuvastatin',        dose: '5mg',          category: 'Cardiac',     intervalDays: 90 },
-  { id: 'amlodipine',     name: 'Amlodipine',          dose: '2.5mg',        category: 'Cardiac',     intervalDays: 90 },
-  { id: 'aspirin',        name: 'Aspirin',              dose: '81mg',         category: 'Cardiac',     intervalDays: 90 },
-  { id: 'metoprolol',     name: 'Metoprolol',           dose: '50mg',         category: 'Cardiac',     intervalDays: 90 },
-  { id: 'lupron',         name: 'Lupron',               dose: 'q3 months',    category: 'Oncology',    intervalDays: 90 },
-  { id: 'nubeqa',         name: 'Nubeqa (Darolutamide)',dose: '600mg BID',    category: 'Oncology',    intervalDays: 90 },
-  { id: 'xgeva',          name: 'XGEVA (Denosumab)',    dose: '120mg q3mo',   category: 'Oncology',    intervalDays: 90 },
-  { id: 'duloxetine',     name: 'Duloxetine',           dose: '30+60mg/day',  category: 'Mental',      intervalDays: 90 },
-  { id: 'clonazepam',     name: 'Clonazepam',           dose: '0.5mg PRN',    category: 'Mental',      intervalDays: 30 },
-  { id: 'terazosin',      name: 'Terazosin',            dose: '10mg',         category: 'Urologic',    intervalDays: 90 },
-  { id: 'tolterodine',    name: 'Tolterodine',          dose: '4mg',          category: 'Urologic',    intervalDays: 90 },
-  { id: 'pantoprazole',   name: 'Pantoprazole',         dose: '40mg',         category: 'GI',          intervalDays: 90 },
-  { id: 'fluticasone',    name: 'Fluticasone-Salmeterol',dose: 'inhaler',     category: 'Respiratory', intervalDays: 90 },
-  { id: 'prevident',      name: 'PreviDent',            dose: 'topical',      category: 'Dental',      intervalDays: 180 },
-  { id: 'calcium',        name: 'Calcium Citrate',      dose: '1000mg BID',   category: 'BoneHealth',  intervalDays: 90 },
+  // Cardiac
+  { id: 'aspirin', name: 'Aspirin', dose: '81mg daily', category: 'Cardiac' },
+  { id: 'atorvastatin', name: 'Atorvastatin', dose: '20mg daily', category: 'Cardiac' },
+  { id: 'lisinopril', name: 'Lisinopril', dose: '10mg daily', category: 'Cardiac' },
+  { id: 'metoprolol', name: 'Metoprolol', dose: '25mg daily', category: 'Cardiac' },
+  
+  // Oncology
+  { id: 'tamoxifen', name: 'Tamoxifen', dose: '20mg daily', category: 'Oncology' },
+  
+  // Mental
+  { id: 'sertraline', name: 'Sertraline', dose: '50mg daily', category: 'Mental' },
+  { id: 'escitalopram', name: 'Escitalopram', dose: '10mg daily', category: 'Mental' },
+  { id: 'alprazolam', name: 'Alprazolam', dose: '0.5mg as needed', category: 'Mental' },
+  
+  // Urologic
+  { id: 'finasteride', name: 'Finasteride', dose: '5mg daily', category: 'Urologic' },
+  
+  // GI
+  { id: 'omeprazole', name: 'Omeprazole', dose: '20mg daily', category: 'GI' },
+  { id: 'ondansetron', name: 'Ondansetron', dose: '4mg as needed', category: 'GI' },
+  
+  // Respiratory
+  { id: 'albuterol', name: 'Albuterol', dose: 'inhale as needed', category: 'Respiratory' },
+  { id: 'fluticasone', name: 'Fluticasone', dose: '110 mcg daily', category: 'Respiratory' },
+  
+  // Dental
+  { id: 'chlorhexidine', name: 'Chlorhexidine', dose: 'rinse daily', category: 'Dental' },
+  
+  // Bone Health
+  { id: 'calcium', name: 'Calcium', dose: '1000mg daily', category: 'BoneHealth' },
+  { id: 'vitamin-d', name: 'Vitamin D', dose: '1000 IU daily', category: 'BoneHealth' }
 ];
 
-
-// ── State ────────────────────────────────────────────────────────────────────
-let accessToken = null;
-let driveFileId = null;
 let ordersData = {};
 let activeMedId = null;
-let isDark = false;
+let accessToken = null;
 
-// ── Dark mode ────────────────────────────────────────────────────────────────
-function toggleDark() {
-  isDark = !isDark;
-  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-  document.getElementById('dark-toggle').textContent = isDark ? '☀️ Light' : '🌙 Dark';
-  localStorage.setItem('rxDark', isDark ? '1' : '0');
+// ─────────────────────────────────────────────────────────────────
+// Initialization
+// ─────────────────────────────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', async () => {
+  // Check if running in Electron
+  if (window.electronAPI) {
+    setupElectronAuth();
+  } else {
+    // Fallback for web version
+    setupWebAuth();
+  }
+
+  // Setup event listeners
+  document.getElementById('sign-in-btn').addEventListener('click', handleSignIn);
+  document.getElementById('sign-out-btn').addEventListener('click', handleSignOut);
+  document.getElementById('dark-toggle').addEventListener('click', toggleDarkMode);
+  document.getElementById('btn-pick-date').addEventListener('click', openCalPopup);
+  document.getElementById('cal-cancel-btn').addEventListener('click', closeCalPopup);
+  document.getElementById('cal-accept-btn').addEventListener('click', confirmCalDate);
+  document.getElementById('cal-nav-prev').addEventListener('click', () => calNav(-1));
+  document.getElementById('cal-nav-next').addEventListener('click', () => calNav(1));
+  document.getElementById('cal-popup-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('cal-popup-overlay')) closeCalPopup();
+  });
+  document.getElementById('btn-save').addEventListener('click', saveCurrentMed);
+
+  // Form validation
+  ['f-source', 'f-source-phone', 'f-prescriber', 'f-prescriber-phone'].forEach(id => {
+    document.getElementById(id).addEventListener('input', validateForm);
+  });
+
+  // Restore dark mode
+  await restoreDarkMode();
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Electron Authentication
+// ─────────────────────────────────────────────────────────────────
+
+function setupElectronAuth() {
+  // Listen for auth success
+  window.electronAPI.auth.onSuccess((data) => {
+    accessToken = data.accessToken;
+    showApp();
+    loadDataFromDrive();
+  });
+
+  // Listen for auth error
+  window.electronAPI.auth.onError((data) => {
+    toast('Authentication error: ' + data.message);
+    showAuth();
+  });
+
+  // Check if already logged in
+  window.electronAPI.auth.getToken().then(token => {
+    if (token) {
+      accessToken = token;
+      showApp();
+      loadDataFromDrive();
+    }
+  });
 }
 
-function initDark() {
-  const saved = localStorage.getItem('rxDark');
-  if (saved === '1') {
-    isDark = true;
-    document.documentElement.setAttribute('data-theme', 'dark');
-    document.getElementById('dark-toggle').textContent = '☀️ Light';
+function setupWebAuth() {
+  // Fallback for web (if needed for testing)
+  // Implementation would go here
+}
+
+async function handleSignIn() {
+  if (window.electronAPI) {
+    document.getElementById('sign-in-btn').disabled = true;
+    await window.electronAPI.auth.startLogin();
+    // App will show once auth succeeds
   }
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
-document.getElementById('sign-in-btn').addEventListener('click', () => {
-  google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events',
-    callback: async (resp) => {
-      if (resp.error) return;
-      accessToken = resp.access_token;
-      await initApp();
-    }
-  }).requestAccessToken();
-});
+async function handleSignOut() {
+  if (window.electronAPI) {
+    await window.electronAPI.auth.logout();
+    accessToken = null;
+    ordersData = {};
+    await clearStoredDriveFileId();
+    showAuth();
+  }
+}
 
-document.getElementById('sign-out-btn').addEventListener('click', () => {
-  google.accounts.oauth2.revoke(accessToken, () => {
-    accessToken = null; driveFileId = null; ordersData = {}; activeMedId = null;
-    document.getElementById('app').style.display = 'none';
-    document.getElementById('auth-screen').style.display = 'flex';
+// ─────────────────────────────────────────────────────────────────
+// Google Drive API
+// ─────────────────────────────────────────────────────────────────
+
+const DRIVE_FILE_NAME = 'richard_medication_orders.json';
+let driveFileId = null;
+
+async function getStoredDriveFileId() {
+  if (window.electronAPI) {
+    return (await window.electronAPI.storage.get('driveFileId')) || null;
+  }
+  return localStorage.getItem('driveFileId');
+}
+
+async function setStoredDriveFileId(id) {
+  if (window.electronAPI) {
+    await window.electronAPI.storage.set('driveFileId', id);
+  } else {
+    localStorage.setItem('driveFileId', id);
+  }
+}
+
+async function clearStoredDriveFileId() {
+  driveFileId = null;
+  if (window.electronAPI) {
+    await window.electronAPI.storage.delete('driveFileId');
+  } else {
+    localStorage.removeItem('driveFileId');
+  }
+}
+
+// Resolve the Drive file ID for this signed-in account: reuse a cached ID,
+// otherwise look up an existing file by name, otherwise create one. This
+// avoids hard-coding a file ID that only exists in one account's Drive.
+async function resolveDriveFileId() {
+  if (driveFileId) return driveFileId;
+
+  const cached = await getStoredDriveFileId();
+  if (cached) {
+    driveFileId = cached;
+    return driveFileId;
+  }
+
+  const query = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+  const listRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&spaces=drive&fields=files(id,name)`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
   });
-});
+  if (listRes.ok) {
+    const { files } = await listRes.json();
+    if (files && files.length > 0) {
+      driveFileId = files[0].id;
+      await setStoredDriveFileId(driveFileId);
+      return driveFileId;
+    }
+  }
 
-// ── Init ─────────────────────────────────────────────────────────────────────
-async function initApp() {
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  initDark();
-  await loadOrCreateDriveFile();
+  // No existing file in this account's Drive — create one
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ name: DRIVE_FILE_NAME })
+  });
+  if (!createRes.ok) throw new Error('Failed to create Drive file: ' + createRes.status);
+  const created = await createRes.json();
+  driveFileId = created.id;
+  await setStoredDriveFileId(driveFileId);
+  return driveFileId;
+}
+
+async function loadDataFromDrive() {
+  if (!accessToken) return;
+  try {
+    const fileId = await resolveDriveFileId();
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (res.ok) {
+      ordersData = await res.json();
+    }
+  } catch (err) {
+    console.error('Load error:', err);
+  }
   renderMedList();
-  showEmpty();
   updateHeaderSub();
 }
 
-function updateHeaderSub() {
-  const upcoming = MEDICATIONS.filter(m => {
-    const o = ordersData[m.id];
-    if (!o?.nextOrderDate) return false;
-    return daysDiff(o.nextOrderDate) <= 14;
-  }).length;
-  const sub = document.getElementById('header-sub');
-  sub.textContent = upcoming > 0
-    ? `${upcoming} medication${upcoming > 1 ? 's' : ''} due soon`
-    : `${MEDICATIONS.length} medications tracked`;
-}
-
-// ── Drive ─────────────────────────────────────────────────────────────────────
-async function loadOrCreateDriveFile() {
-  // search for existing
-  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
-  const data = await res.json();
-  if (data.files && data.files.length > 0) {
-    driveFileId = data.files[0].id;
-    const content = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    ordersData = await content.json();
-  } else {
-    // create new
-    ordersData = {};
-    await saveToDrive();
-  }
-}
-
 async function saveToDrive() {
-  const sb = document.getElementById('saving-bar');
-  sb.classList.add('visible');
-  const body = JSON.stringify(ordersData);
-  let url, method, headers;
-  if (driveFileId) {
-    url = `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`;
-    method = 'PATCH';
-    headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
-  } else {
-    // multipart create
-    const meta = JSON.stringify({ name: DRIVE_FILE_NAME, mimeType: 'application/json' });
-    const boundary = 'rxboundary';
-    const mp = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
-    url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id';
-    method = 'POST';
-    headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` };
-    const r = await fetch(url, { method, headers, body: mp });
-    const d = await r.json();
-    driveFileId = d.id;
-    sb.classList.remove('visible');
-    return;
+  if (!accessToken || !ordersData) return;
+  try {
+    const fileId = await resolveDriveFileId();
+    const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(ordersData)
+    });
+    if (!res.ok) throw new Error('Save failed: ' + res.status);
+  } catch (err) {
+    console.error('Save error:', err);
+    toast('Save failed');
   }
-  await fetch(url, { method, headers, body });
-  sb.classList.remove('visible');
 }
 
-// ── UI Render ────────────────────────────────────────────────────────────────
-// Track which groups are open (default: all closed)
-const openGroups = new Set();
+// ─────────────────────────────────────────────────────────────────
+// UI Functions
+// ─────────────────────────────────────────────────────────────────
 
-function toggleGroup(cat) {
-  if (openGroups.has(cat)) openGroups.delete(cat);
-  else openGroups.add(cat);
-  renderMedList();
+function showAuth() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('sign-in-btn').disabled = false;
 }
 
-const CHEVRON = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="4,2 10,7 4,12"/></svg>`;
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+}
 
 function renderMedList() {
-  const categories = [...new Set(MEDICATIONS.map(m => m.category))];
-  document.getElementById('med-list').innerHTML = categories.map(cat => {
-    const meds = MEDICATIONS.filter(m => m.category === cat);
-    const isOpen = openGroups.has(cat);
+  const list = document.getElementById('med-list');
+  const cats = {};
 
-    // Determine worst urgency across the group for the header dot
-    const statuses = meds.map(m => getStatus(ordersData[m.id]).cls);
-    const groupUrgency = statuses.includes('status-due') ? 'due'
-      : statuses.includes('status-soon') ? 'soon' : '';
-    const alertDot = groupUrgency
-      ? `<span class="tree-alert-dot ${groupUrgency}"></span>` : '';
+  MEDICATIONS.forEach(med => {
+    if (!cats[med.category]) cats[med.category] = [];
+    cats[med.category].push(med);
+  });
 
-    const items = meds.map(m => {
+  let html = '';
+  Object.entries(cats).forEach(([cat, meds]) => {
+    const isOpen = localStorage.getItem(`tree-${cat}`) === 'open';
+    const urgency = meds.some(m => {
       const o = ordersData[m.id];
+      return o && getStatus(o).cls === 'status-due' ? 'due' : o && getStatus(o).cls === 'status-soon' ? 'soon' : '';
+    });
+    const urgencyDot = urgency ? `<div class="tree-alert-dot ${urgency}"></div>` : '';
+
+    html += `<div class="tree-group ${isOpen ? 'open' : ''}">
+      <div class="tree-group-header" onclick="toggleTreeGroup('${cat}')">
+        <div class="tree-chevron">›</div>
+        <div class="tree-group-label">${cat}</div>
+        <div class="tree-group-count">${meds.length}</div>
+        ${urgencyDot}
+      </div>
+      <div class="tree-items">`;
+    
+    meds.forEach(med => {
+      const o = ordersData[med.id];
       const { label, cls } = getStatus(o);
-      // Small inline dot before name when item is due/soon
-      const itemDot = cls === 'status-due' ? `<span class="tree-alert-dot due" style="display:inline-block;margin-right:5px;vertical-align:middle"></span>`
-        : cls === 'status-soon' ? `<span class="tree-alert-dot soon" style="display:inline-block;margin-right:5px;vertical-align:middle"></span>` : '';
-      return `<div class="med-item${activeMedId === m.id ? ' active' : ''}" onclick="selectMed('${m.id}')">
-        <div class="med-item-name">${itemDot}${m.name}</div>
-        <div class="med-item-dose">${m.dose}</div>
+      const isActive = activeMedId === med.id;
+      html += `<div class="med-item ${isActive ? 'active' : ''}" onclick="selectMed('${med.id}')">
+        <div class="med-item-name">${med.name}</div>
+        <div class="med-item-dose">${med.dose}</div>
         <div class="med-item-status ${cls}">${label}</div>
       </div>`;
-    }).join('');
+    });
 
-    return `<div class="tree-group${isOpen ? ' open' : ''}" id="grp-${cat}">
-      <div class="tree-group-header" onclick="toggleGroup('${cat}')">
-        <span class="tree-chevron">${CHEVRON}</span>
-        <span class="tree-group-label">${cat}</span>
-        ${alertDot}
-        <span class="tree-group-count">${meds.length}</span>
-      </div>
-      <div class="tree-items">${items}</div>
-    </div>`;
-  }).join('');
+    html += `</div></div>`;
+  });
+
+  list.innerHTML = html;
 }
 
-function daysDiff(dateStr) {
-  const now = new Date(); now.setHours(0,0,0,0);
-  const d = new Date(dateStr);
-  if (isNaN(d)) return null;
-  return Math.round((d - now) / 86400000);
-}
-
-function getStatus(o) {
-  if (!o?.nextOrderDate) return { label: 'No schedule', cls: 'status-empty' };
-  const d = daysDiff(o.nextOrderDate);
-  if (d === null) return { label: o.nextOrderDate, cls: 'status-empty' };
-  if (d < 0) return { label: `Overdue by ${-d}d`, cls: 'status-due' };
-  if (d <= 14) return { label: `Due in ${d}d`, cls: 'status-soon' };
-  return { label: `Next: ${o.nextOrderDate}`, cls: 'status-ok' };
-}
-
-function selectMed(id) {
-  activeMedId = id;
-  // ensure the group containing this med is open
-  const med = MEDICATIONS.find(m => m.id === id);
-  openGroups.add(med.category);
+function toggleTreeGroup(cat) {
+  const isOpen = localStorage.getItem(`tree-${cat}`) === 'open';
+  localStorage.setItem(`tree-${cat}`, isOpen ? 'closed' : 'open');
   renderMedList();
-  const o = ordersData[id] || {};
+}
 
-  // populate header
-  document.getElementById('detail-title').textContent = med.name;
-  const badge = document.getElementById('detail-badge');
-  badge.textContent = med.category;
-  badge.className = `cat-badge cat-${med.category}`;
+function getStatus(order) {
+  if (!order || !order.nextOrderDate) return { label: 'Not scheduled', cls: 'status-empty' };
+  const days = Math.ceil((new Date(order.nextOrderDate) - new Date()) / (1000 * 60 * 60 * 24));
+  if (days < 0) return { label: 'Overdue', cls: 'status-due' };
+  if (days <= 7) return { label: `Due in ${days}d`, cls: 'status-soon' };
+  return { label: `In ${days}d`, cls: 'status-ok' };
+}
+
+function updateHeaderSub() {
+  const total = MEDICATIONS.length;
+  const scheduled = Object.keys(ordersData).filter(k => ordersData[k].nextOrderDate).length;
+  document.getElementById('header-sub').textContent = `${scheduled} of ${total} scheduled`;
+}
+
+function selectMed(medId) {
+  activeMedId = medId;
+  renderMedList();
+  const med = MEDICATIONS.find(m => m.id === medId);
+  const o = ordersData[medId] || {};
+
+  document.getElementById('detail-name').textContent = med.name;
   document.getElementById('detail-dose').textContent = med.dose;
-
-  // schedule badge
-  const sb = document.getElementById('schedule-badge');
-  const { label, cls } = getStatus(o);
-  sb.textContent = label;
-  sb.className = 'schedule-badge ' + (cls === 'status-ok' ? 'sched-ok' : cls === 'status-soon' ? 'sched-soon' : cls === 'status-due' ? 'sched-due' : 'sched-empty');
-  sb.style.cssText = ''; // reset inline, use classes
-
-  // populate form
   document.getElementById('f-source').value = o.source || '';
   document.getElementById('f-source-phone').value = o.sourcePhone || '';
   document.getElementById('f-source-addr').value = o.sourceAddress || '';
@@ -824,36 +723,98 @@ function selectMed(id) {
   validateForm();
 }
 
-function showEmpty() {
-  activeMedId = null;
-  document.getElementById('empty-state').classList.add('visible');
-  document.getElementById('detail-header').classList.remove('visible');
-  document.getElementById('detail-body').classList.remove('visible');
-}
-
 function validateForm() {
   const ok = ['f-source','f-source-phone','f-prescriber','f-prescriber-phone']
     .every(id => document.getElementById(id).value.trim() !== '');
   document.getElementById('btn-save').disabled = !ok;
 }
 
-function clearForm() {
-  ['f-source','f-source-phone','f-source-addr','f-prescriber','f-prescriber-phone','f-how','f-schedule-notes'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('f-last-order').textContent = '—';
-  document.getElementById('f-next-order').textContent = '—';
-  calSelectedISO = null;
-  validateForm();
+async function saveCurrentMed() {
+  if (!activeMedId) return;
+  ordersData[activeMedId] = {
+    source: document.getElementById('f-source').value,
+    sourcePhone: document.getElementById('f-source-phone').value,
+    sourceAddress: document.getElementById('f-source-addr').value,
+    prescriberName: document.getElementById('f-prescriber').value,
+    prescriberPhone: document.getElementById('f-prescriber-phone').value,
+    howToOrder: document.getElementById('f-how').value,
+    lastOrderDate: document.getElementById('f-last-order').textContent.replace('—','').trim(),
+    nextOrderDate: document.getElementById('f-next-order').textContent.replace('—','').trim(),
+    scheduleNotes: document.getElementById('f-schedule-notes').value,
+    updatedAt: new Date().toISOString(),
+  };
+  await saveToDrive();
+  renderMedList();
+  updateHeaderSub();
+  toast('Saved ✓');
 }
 
-// ── Calendar picker state ─────────────────────────────────────────────────────
+async function scheduleReminder() {
+  if (!activeMedId) return;
+  const isoDate = document.getElementById('f-next-order').textContent.replace('—','').trim();
+  if (!isoDate) { toast('Pick a date first'); return; }
+  const med = MEDICATIONS.find(m => m.id === activeMedId);
+  const event = {
+    summary: `Rx: Order ${med.name} (${med.dose})`,
+    description: `Reminder to order ${med.name} ${med.dose}.\n\n${document.getElementById('f-how').value || ''}`,
+    start: { date: isoDate },
+    end: { date: isoDate },
+    reminders: { useDefault: false, overrides: [{ method: 'email', minutes: 1440 }] }
+  };
+  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(event)
+  });
+  if (res.ok) toast('Added to Google Calendar ✓');
+  else toast('Calendar error — check permissions');
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Dark Mode
+// ─────────────────────────────────────────────────────────────────
+
+async function toggleDarkMode() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const newTheme = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  
+  if (window.electronAPI) {
+    await window.electronAPI.storage.set('darkMode', newTheme === 'dark');
+  } else {
+    localStorage.setItem('darkMode', newTheme === 'dark');
+  }
+}
+
+async function restoreDarkMode() {
+  let isDark = false;
+  if (window.electronAPI) {
+    isDark = await window.electronAPI.storage.get('darkMode') || false;
+  } else {
+    isDark = localStorage.getItem('darkMode') === 'true';
+  }
+  
+  if (isDark) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Calendar Picker
+// ─────────────────────────────────────────────────────────────────
+
 let calYear, calMonth, calSelectedISO = null;
 
 function openCalPopup() {
   document.getElementById('cal-popup-overlay').classList.add('open');
   document.getElementById('cal-popup').classList.add('open');
-  // Pre-select existing next order date if set
   const stored = document.getElementById('f-next-order').textContent.trim();
   if (stored && stored !== '—') {
     calSelectedISO = stored;
@@ -886,23 +847,20 @@ function renderCalGrid() {
   document.getElementById('cal-month-label').textContent = `${MONTHS[calMonth]} ${calYear}`;
 
   const today = new Date(); today.setHours(0,0,0,0);
-  const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const daysInPrev  = new Date(calYear, calMonth, 0).getDate();
 
   let html = '';
-  // Leading days from prev month
   for (let i = firstDay - 1; i >= 0; i--) {
     const d = daysInPrev - i;
     const iso = isoDate(calYear, calMonth - 1, d);
     html += dayBtn(d, iso, 'other-month', today);
   }
-  // Current month days
   for (let d = 1; d <= daysInMonth; d++) {
     const iso = isoDate(calYear, calMonth, d);
     html += dayBtn(d, iso, '', today);
   }
-  // Trailing days
   const total = firstDay + daysInMonth;
   const trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
   for (let d = 1; d <= trailing; d++) {
@@ -912,7 +870,6 @@ function renderCalGrid() {
 
   document.getElementById('cal-grid').innerHTML = html;
 
-  // Update selected display & accept button
   const disp = document.getElementById('cal-selected-display');
   const btn  = document.getElementById('cal-accept-btn');
   if (calSelectedISO) {
@@ -926,7 +883,6 @@ function renderCalGrid() {
 }
 
 function isoDate(year, month, day) {
-  // Normalise month overflow/underflow
   const d = new Date(year, month, day);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
@@ -940,7 +896,6 @@ function dayBtn(label, iso, extraClass, today) {
 
 function calSelectDay(iso) {
   calSelectedISO = iso;
-  // If user clicked a day in adjacent month, navigate there
   const [y, m] = iso.split('-').map(Number);
   calYear = y; calMonth = m - 1;
   renderCalGrid();
@@ -951,66 +906,6 @@ async function confirmCalDate() {
   document.getElementById('f-next-order').textContent = calSelectedISO;
   closeCalPopup();
   await scheduleReminder();
-}
-
-function syncCalDate() { /* no-op — kept for compatibility */ }
-
-async function saveCurrentMed() {
-  if (!activeMedId) return;
-  ordersData[activeMedId] = {
-    source: document.getElementById('f-source').value,
-    sourcePhone: document.getElementById('f-source-phone').value,
-    sourceAddress: document.getElementById('f-source-addr').value,
-    prescriberName: document.getElementById('f-prescriber').value,
-    prescriberPhone: document.getElementById('f-prescriber-phone').value,
-    howToOrder: document.getElementById('f-how').value,
-    lastOrderDate: document.getElementById('f-last-order').textContent.replace('—','').trim(),
-    nextOrderDate: document.getElementById('f-next-order').textContent.replace('—','').trim(),
-    scheduleNotes: document.getElementById('f-schedule-notes').value,
-    updatedAt: new Date().toISOString(),
-  };
-  await saveToDrive();
-  renderMedList();
-  updateHeaderSub();
-  // refresh schedule badge
-  const o = ordersData[activeMedId];
-  const sb = document.getElementById('schedule-badge');
-  const { label, cls } = getStatus(o);
-  sb.textContent = label;
-  sb.className = 'schedule-badge ' + (cls === 'status-ok' ? 'sched-ok' : cls === 'status-soon' ? 'sched-soon' : cls === 'status-due' ? 'sched-due' : 'sched-empty');
-  toast('Saved ✓');
-}
-
-async function scheduleReminder() {
-  if (!activeMedId) return;
-  const isoDate = document.getElementById('f-next-order').textContent.replace('—','').trim();
-  if (!isoDate) { toast('Pick a date first'); return; }
-  const med = MEDICATIONS.find(m => m.id === activeMedId);
-  const event = {
-    summary: `Rx: Order ${med.name} (${med.dose})`,
-    description: `Reminder to order ${med.name} ${med.dose}.\n\n${document.getElementById('f-how').value || ''}`,
-    start: { date: isoDate },
-    end: { date: isoDate },
-    reminders: { useDefault: false, overrides: [{ method: 'email', minutes: 1440 }] }
-  };
-  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(event)
-  });
-  if (res.ok) toast('Added to Google Calendar ✓');
-  else toast('Calendar error — check permissions');
-}
-
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2500);
-}
-
-function toggleClinicalNotes() {
-  document.getElementById('clinical-notes-panel').classList.toggle('open');
 }
 </script>
 </body>
