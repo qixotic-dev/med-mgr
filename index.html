@@ -506,6 +506,7 @@ async function handleSignOut() {
     await window.electronAPI.auth.logout();
     accessToken = null;
     ordersData = {};
+    await clearStoredDriveFileId();
     showAuth();
   }
 }
@@ -514,13 +515,79 @@ async function handleSignOut() {
 // Google Drive API
 // ─────────────────────────────────────────────────────────────────
 
-const DRIVE_FILE_ID = '1UraVtv9LjlA7iQpcyWCsWDepuxXEItaF';
 const DRIVE_FILE_NAME = 'richard_medication_orders.json';
+let driveFileId = null;
+
+async function getStoredDriveFileId() {
+  if (window.electronAPI) {
+    return (await window.electronAPI.storage.get('driveFileId')) || null;
+  }
+  return localStorage.getItem('driveFileId');
+}
+
+async function setStoredDriveFileId(id) {
+  if (window.electronAPI) {
+    await window.electronAPI.storage.set('driveFileId', id);
+  } else {
+    localStorage.setItem('driveFileId', id);
+  }
+}
+
+async function clearStoredDriveFileId() {
+  driveFileId = null;
+  if (window.electronAPI) {
+    await window.electronAPI.storage.delete('driveFileId');
+  } else {
+    localStorage.removeItem('driveFileId');
+  }
+}
+
+// Resolve the Drive file ID for this signed-in account: reuse a cached ID,
+// otherwise look up an existing file by name, otherwise create one. This
+// avoids hard-coding a file ID that only exists in one account's Drive.
+async function resolveDriveFileId() {
+  if (driveFileId) return driveFileId;
+
+  const cached = await getStoredDriveFileId();
+  if (cached) {
+    driveFileId = cached;
+    return driveFileId;
+  }
+
+  const query = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+  const listRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&spaces=drive&fields=files(id,name)`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  if (listRes.ok) {
+    const { files } = await listRes.json();
+    if (files && files.length > 0) {
+      driveFileId = files[0].id;
+      await setStoredDriveFileId(driveFileId);
+      return driveFileId;
+    }
+  }
+
+  // No existing file in this account's Drive — create one
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ name: DRIVE_FILE_NAME })
+  });
+  if (!createRes.ok) throw new Error('Failed to create Drive file: ' + createRes.status);
+  const created = await createRes.json();
+  driveFileId = created.id;
+  await setStoredDriveFileId(driveFileId);
+  return driveFileId;
+}
 
 async function loadDataFromDrive() {
   if (!accessToken) return;
   try {
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${DRIVE_FILE_ID}?alt=media`, {
+    const fileId = await resolveDriveFileId();
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     if (res.ok) {
@@ -536,9 +603,10 @@ async function loadDataFromDrive() {
 async function saveToDrive() {
   if (!accessToken || !ordersData) return;
   try {
-    const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${DRIVE_FILE_ID}?uploadType=media`, {
+    const fileId = await resolveDriveFileId();
+    const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
       method: 'PATCH',
-      headers: { 
+      headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
