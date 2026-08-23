@@ -239,7 +239,7 @@
   #cal-popup.open { display: flex; }
   #cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
   #cal-month-label { font-size: 16px; font-weight: 600; }
-  #cal-nav-btn { background: transparent; border: none; color: var(--blue); cursor: pointer; font-size: 18px; }
+  .cal-nav-btn { background: transparent; border: none; color: var(--blue); cursor: pointer; font-size: 18px; }
   #cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 16px; }
   .cal-day { padding: 8px; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer; font-size: 12px; transition: all 0.15s; }
   .cal-day:hover { background: var(--surface2); }
@@ -475,6 +475,7 @@ function setupElectronAuth() {
   // Listen for auth error
   window.electronAPI.auth.onError((data) => {
     toast('Authentication error: ' + data.message);
+    showAuth();
   });
 
   // Check if already logged in
@@ -677,9 +678,6 @@ async function saveCurrentMed() {
   await saveToDrive();
   renderMedList();
   updateHeaderSub();
-  const o = ordersData[activeMedId];
-  const sb = document.querySelector('#detail-header + div');
-  const { label, cls } = getStatus(o);
   toast('Saved ✓');
 }
 
