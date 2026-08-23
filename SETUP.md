@@ -159,7 +159,7 @@ To check for updates manually in the app:
 ### Drive API Permission Denied
 - ✅ Ensure Google Drive API is enabled in Cloud Console
 - ✅ Ask user to re-authenticate by clicking Sign out → Sign in
-- ✅ Verify the test user `richard.haber@gmail.com` has access
+- ✅ Verify your intended test user account has access
 
 ### Auto-Update Not Working
 - ✅ App must be version 1.0.1+ to detect updates
