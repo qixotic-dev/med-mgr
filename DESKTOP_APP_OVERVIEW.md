@@ -126,7 +126,7 @@ Main Process (main.js)
 ```
 
 ### Storage Locations
-- **Google Drive**: `richard_medication_orders.json` (file ID: `1UraVtv9LjlA7iQpcyWCsWDepuxXEItaF`)
+- **Google Drive**: `richard_medication_orders.json` (stored in the signed-in user's Drive)
 - **electron-store**: Credentials (Windows credential manager)
 - **localStorage**: UI state (dark mode, tree open/close)
 
