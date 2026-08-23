@@ -194,6 +194,10 @@ function startOAuthServer() {
           res.writeHead(400, { 'Content-Type': 'text/html' });
           res.end(`<h1>Token Error</h1><p>${err.message}</p>`);
         }
+      } else {
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('Missing "code" parameter');
+        return;
       }
     } else {
       res.writeHead(404);
