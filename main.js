@@ -1,11 +1,12 @@
-const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
+require('dotenv').config();
+
+const { app, BrowserWindow, ipcMain, Menu, dialog, shell } = require('electron');
 const path = require('path');
 const crypto = require('crypto');
 const Store = require('electron-store');
 const { autoUpdater } = require('electron-updater');
 const http = require('http');
 const url = require('url');
-const open = require('open');
 
 // ─────────────────────────────────────────────────────────────────
 // Configuration
@@ -21,9 +22,9 @@ let pendingOAuthState = null;
 const store = new Store({
   name: 'medication-manager',
   schema: {
-    accessToken: { type: 'string', default: null },
-    refreshToken: { type: 'string', default: null },
-    expiresAt: { type: 'number', default: null },
+    accessToken: { type: ['string', 'null'], default: null },
+    refreshToken: { type: ['string', 'null'], default: null },
+    expiresAt: { type: ['number', 'null'], default: null },
     darkMode: { type: 'boolean', default: false }
   }
 });
@@ -263,7 +264,7 @@ ipcMain.handle('auth:start-login', async () => {
   authUrl.searchParams.set('state', pendingOAuthState);
 
   // Open browser
-  open(authUrl.toString());
+  shell.openExternal(authUrl.toString());
 });
 
 ipcMain.handle('auth:logout', async () => {

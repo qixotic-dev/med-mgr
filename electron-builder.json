@@ -16,6 +16,7 @@
     "repo": "med-manager-desktop"
   },
   "win": {
+    "icon": "assets/medication-manager-pills.ico",
     "target": [
       {
         "target": "nsis",
@@ -30,11 +31,6 @@
           "x64"
         ]
       }
-    ],
-    "certificateFile": null,
-    "certificatePassword": null,
-    "signingHashAlgorithms": [
-      "sha256"
     ]
   },
   "nsis": {
