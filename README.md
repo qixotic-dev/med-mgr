@@ -28,7 +28,7 @@ A desktop application for tracking prescription orders, pharmacy information, pr
 ## Quick Start
 
 ### Requirements
-- Windows 7 or later
+- Windows 10 or later
 - Internet connection (for Google sign-in)
 
 ### Installation
