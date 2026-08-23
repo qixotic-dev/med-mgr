@@ -68,7 +68,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true
     },
-    icon: path.join(__dirname, 'assets', 'icon.png')
+    icon: path.join(__dirname, 'assets', 'medication-manager-pills.ico')
   });
 
   mainWindow.loadFile('index.html');
