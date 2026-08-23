@@ -28,7 +28,7 @@ To set GitHub Secret:
 - [ ] Redirect URI: `http://localhost:3000/auth/callback` is configured
 - [ ] Google Drive API enabled
 - [ ] Google Calendar API enabled
-- [ ] Test user `richard.haber@gmail.com` has access
+- [ ] Test user account has access (e.g., your internal test Google account)
 
 ## Phase 2: Local Build & Test
 
