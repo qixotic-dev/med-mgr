@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
+const crypto = require('crypto');
 const Store = require('electron-store');
 const { autoUpdater } = require('electron-updater');
 const http = require('http');
@@ -16,6 +17,7 @@ const REDIRECT_URI = 'http://localhost:3000/auth/callback';
 
 let mainWindow;
 let oauthServer;
+let pendingOAuthState = null;
 const store = new Store({
   name: 'medication-manager',
   schema: {
@@ -131,12 +133,20 @@ function startOAuthServer() {
     if (parsedUrl.pathname === '/auth/callback') {
       const code = parsedUrl.query.code;
       const error = parsedUrl.query.error;
+      const state = parsedUrl.query.state;
 
       if (error) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(`<h1>Auth Error</h1><p>${error}</p><p>Return to the app to try again.</p>`);
         return;
       }
+
+      if (!state || state !== pendingOAuthState) {
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('Invalid state parameter');
+        return;
+      }
+      pendingOAuthState = null;
 
       if (code) {
         try {
@@ -232,6 +242,8 @@ ipcMain.handle('auth:get-token', async () => {
 });
 
 ipcMain.handle('auth:start-login', async () => {
+  pendingOAuthState = crypto.randomBytes(32).toString('hex');
+
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID);
   authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
@@ -239,6 +251,7 @@ ipcMain.handle('auth:start-login', async () => {
   authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar');
   authUrl.searchParams.set('access_type', 'offline');
   authUrl.searchParams.set('prompt', 'consent');
+  authUrl.searchParams.set('state', pendingOAuthState);
 
   // Open browser
   open(authUrl.toString());
