@@ -34,9 +34,11 @@ app.on('ready', () => {
   createWindow();
   startOAuthServer();
   
-  // Setup auto-updates (check every hour)
-  autoUpdater.checkForUpdatesAndNotify();
-  setInterval(() => autoUpdater.checkForUpdatesAndNotify(), 3600000);
+  // Setup auto-updates (check every hour) — only when packaged
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify();
+    setInterval(() => autoUpdater.checkForUpdatesAndNotify(), 3600000);
+  }
 });
 
 app.on('window-all-closed', () => {
