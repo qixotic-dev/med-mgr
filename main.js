@@ -11,7 +11,7 @@ const open = require('open');
 // ─────────────────────────────────────────────────────────────────
 
 const GOOGLE_CLIENT_ID = '972705955264-1r2bivpb0ece9bvvs8vbe0tuklru9761.apps.googleusercontent.com';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET_HERE';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = 'http://localhost:3000/auth/callback';
 
 let mainWindow;
