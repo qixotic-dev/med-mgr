@@ -205,8 +205,8 @@ function startOAuthServer() {
     }
   });
 
-  oauthServer.listen(3000, () => {
-    console.log('OAuth server listening on port 3000');
+  oauthServer.listen(3000, '127.0.0.1', () => {
+    console.log('OAuth server listening on http://127.0.0.1:3000');
   });
 }
 
