@@ -125,6 +125,15 @@ function createMenu() {
 // OAuth Server (handles redirects from Google)
 // ─────────────────────────────────────────────────────────────────
 
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function startOAuthServer() {
   oauthServer = http.createServer(async (req, res) => {
     const parsedUrl = url.parse(req.url, true);
@@ -137,7 +146,7 @@ function startOAuthServer() {
 
       if (error) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(`<h1>Auth Error</h1><p>${error}</p><p>Return to the app to try again.</p>`);
+        res.end(`<h1>Auth Error</h1><p>${escapeHtml(error)}</p><p>Return to the app to try again.</p>`);
         return;
       }
 
@@ -202,7 +211,7 @@ function startOAuthServer() {
             });
           }
           res.writeHead(400, { 'Content-Type': 'text/html' });
-          res.end(`<h1>Token Error</h1><p>${err.message}</p>`);
+          res.end(`<h1>Token Error</h1><p>${escapeHtml(err.message)}</p>`);
         }
       } else {
         res.writeHead(400, { 'Content-Type': 'text/plain' });
