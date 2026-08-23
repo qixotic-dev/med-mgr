@@ -388,36 +388,36 @@
 
 const MEDICATIONS = [
   // Cardiac
-  { id: 'aspirin', name: 'Aspirin', dose: '81mg daily', category: 'Cardiac' },
-  { id: 'atorvastatin', name: 'Atorvastatin', dose: '20mg daily', category: 'Cardiac' },
-  { id: 'lisinopril', name: 'Lisinopril', dose: '10mg daily', category: 'Cardiac' },
-  { id: 'metoprolol', name: 'Metoprolol', dose: '25mg daily', category: 'Cardiac' },
-  
+  { id: 'rosuvastatin', name: 'Rosuvastatin', dose: '5mg', category: 'Cardiac', intervalDays: 90 },
+  { id: 'amlodipine', name: 'Amlodipine', dose: '2.5mg', category: 'Cardiac', intervalDays: 90 },
+  { id: 'aspirin', name: 'Aspirin', dose: '81mg', category: 'Cardiac', intervalDays: 90 },
+  { id: 'metoprolol', name: 'Metoprolol', dose: '50mg', category: 'Cardiac', intervalDays: 90 },
+
   // Oncology
-  { id: 'tamoxifen', name: 'Tamoxifen', dose: '20mg daily', category: 'Oncology' },
-  
+  { id: 'lupron', name: 'Lupron', dose: 'q3 months', category: 'Oncology', intervalDays: 90 },
+  { id: 'nubeqa', name: 'Nubeqa (Darolutamide)', dose: '600mg BID', category: 'Oncology', intervalDays: 90 },
+  { id: 'xgeva', name: 'XGEVA (Denosumab)', dose: '120mg q3mo', category: 'Oncology', intervalDays: 90 },
+
   // Mental
-  { id: 'sertraline', name: 'Sertraline', dose: '50mg daily', category: 'Mental' },
-  { id: 'escitalopram', name: 'Escitalopram', dose: '10mg daily', category: 'Mental' },
-  { id: 'alprazolam', name: 'Alprazolam', dose: '0.5mg as needed', category: 'Mental' },
-  
+  { id: 'duloxetine', name: 'Duloxetine', dose: '30+60mg/day', category: 'Mental', intervalDays: 90 },
+  { id: 'clonazepam', name: 'Clonazepam', dose: '0.5mg PRN', category: 'Mental', intervalDays: 30 },
+
   // Urologic
-  { id: 'finasteride', name: 'Finasteride', dose: '5mg daily', category: 'Urologic' },
-  
+  { id: 'terazosin', name: 'Terazosin', dose: '10mg', category: 'Urologic', intervalDays: 90 },
+  { id: 'tolterodine', name: 'Tolterodine', dose: '4mg', category: 'Urologic', intervalDays: 90 },
+
   // GI
-  { id: 'omeprazole', name: 'Omeprazole', dose: '20mg daily', category: 'GI' },
-  { id: 'ondansetron', name: 'Ondansetron', dose: '4mg as needed', category: 'GI' },
-  
+  { id: 'pantoprazole', name: 'Pantoprazole', dose: '40mg', category: 'GI', intervalDays: 90 },
+
   // Respiratory
-  { id: 'albuterol', name: 'Albuterol', dose: 'inhale as needed', category: 'Respiratory' },
-  { id: 'fluticasone', name: 'Fluticasone', dose: '110 mcg daily', category: 'Respiratory' },
-  
+  { id: 'fluticasone', name: 'Fluticasone-Salmeterol', dose: 'inhaler', category: 'Respiratory', intervalDays: 90 },
+
   // Dental
-  { id: 'chlorhexidine', name: 'Chlorhexidine', dose: 'rinse daily', category: 'Dental' },
-  
+  { id: 'prevident', name: 'PreviDent', dose: 'topical', category: 'Dental', intervalDays: 180 },
+
   // Bone Health
-  { id: 'calcium', name: 'Calcium', dose: '1000mg daily', category: 'BoneHealth' },
-  { id: 'vitamin-d', name: 'Vitamin D', dose: '1000 IU daily', category: 'BoneHealth' }
+  { id: 'calcium', name: 'Calcium Citrate', dose: '1000mg BID', category: 'BoneHealth', intervalDays: 90 },
+  { id: 'vitamin-d', name: 'Vitamin D', dose: '1000 IU daily', category: 'BoneHealth', intervalDays: 90 }
 ];
 
 let ordersData = {};
