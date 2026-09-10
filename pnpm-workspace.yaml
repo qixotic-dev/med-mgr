@@ -1,0 +1,34 @@
+# Nx + Angular CLI + Jest transforms have historically assumed a flat,
+# hoisted node_modules (the kind npm/yarn classic produce); pnpm's default
+# isolated layout can leave their peer/transitive deps unresolved.
+shamefullyHoist: true
+strictPeerDependencies: false
+autoInstallPeers: true
+allowBuilds:
+  '@firebase/util': true
+  '@parcel/watcher': true
+  '@swc/core': true
+  esbuild: true
+  lmdb: true
+  msgpackr-extract: true
+  nx: true
+  protobufjs: true
+  re2: true
+  unrs-resolver: true
+minimumReleaseAgeExclude:
+  - '@swc/core-darwin-arm64@1.16.2'
+  - '@swc/core-darwin-x64@1.16.2'
+  - '@swc/core-linux-arm-gnueabihf@1.16.2'
+  - '@swc/core-linux-arm64-gnu@1.16.2'
+  - '@swc/core-linux-arm64-musl@1.16.2'
+  - '@swc/core-linux-ppc64-gnu@1.16.2'
+  - '@swc/core-linux-s390x-gnu@1.16.2'
+  - '@swc/core-linux-x64-gnu@1.16.2'
+  - '@swc/core-linux-x64-musl@1.16.2'
+  - '@swc/core-win32-arm64-msvc@1.16.2'
+  - '@swc/core-win32-ia32-msvc@1.16.2'
+  - '@swc/core-win32-x64-msvc@1.16.2'
+  - '@swc/core@1.16.2'
+  - '@playwright/test@1.63.0'
+  - playwright-core@1.63.0
+  - playwright@1.63.0
