@@ -1,0 +1,36 @@
+/* Base (not-scheduled) is outlined/neutral, matching day-mgr's untaken
+   default. border-radius comes from the global `button` rule in
+   styles.scss for other components — this one's a <span>, so it's set here. */
+.status-badge {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 7rem;
+  white-space: nowrap;
+  text-align: center;
+  padding: 3px 10px;
+  border: 1px solid var(--badge-border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.14px;
+
+  &.scheduled {
+    border-color: transparent;
+    background: var(--success);
+    color: var(--success-tint);
+  }
+
+  &.due-soon {
+    border-color: transparent;
+    background: var(--warning);
+    color: var(--warning-tint);
+  }
+
+  &.overdue {
+    border-color: transparent;
+    background: var(--danger);
+    color: var(--danger-tint);
+  }
+}

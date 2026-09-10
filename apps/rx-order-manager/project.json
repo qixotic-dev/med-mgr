@@ -37,7 +37,13 @@
               "maximumError": "8kb"
             }
           ],
-          "outputHashing": "all"
+          "outputHashing": "all",
+          "fileReplacements": [
+            {
+              "replace": "apps/rx-order-manager/src/environments/environment.ts",
+              "with": "apps/rx-order-manager/src/environments/environment.prod.ts"
+            }
+          ]
         },
         "development": {
           "optimization": false,

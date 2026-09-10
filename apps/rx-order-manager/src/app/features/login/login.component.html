@@ -1,0 +1,23 @@
+<div class="login">
+  @if (session$ | async; as session) {
+    @switch (session.status) {
+      @case ('unauthorized') {
+        <p class="message error">
+          Signed in as {{ session.email }}, but this app is only for its owner.
+        </p>
+        <button type="button" (click)="signOut()">Sign out</button>
+      }
+      @case ('authorized') {
+        <p class="message">You're signed in. Redirecting&hellip;</p>
+      }
+      @default {
+        <p class="message">
+          Sign in with the Google account that owns this app.
+        </p>
+        <button type="button" class="text-button" (click)="signIn()">
+          Sign in with Google
+        </button>
+      }
+    }
+  }
+</div>

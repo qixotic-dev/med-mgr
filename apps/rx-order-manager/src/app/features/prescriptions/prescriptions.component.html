@@ -1,0 +1,127 @@
+<div class="prescriptions">
+  <aside class="sidebar">
+    @for (group of categories(); track group.category) {
+      <section class="category-group">
+        <h3>{{ group.category }}</h3>
+        @for (item of group.items; track item.medication.id) {
+          <button
+            type="button"
+            class="med-item"
+            [class.active]="item.medication.id === selectedId()"
+            (click)="select(item.medication.id)"
+          >
+            <span class="med-item-name">{{ item.medication.name }}</span>
+            <span class="med-item-dose">{{ item.medication.dose }}</span>
+            <app-status-badge
+              [nextOrderDate]="item.prescription.nextOrderDate"
+            />
+          </button>
+        }
+      </section>
+    }
+  </aside>
+
+  <section class="detail">
+    @if (selectedMedication(); as medication) {
+      @if (draft; as draft) {
+        <header class="detail-header">
+          <h2>{{ medication.name }}</h2>
+          <span class="dose">{{ medication.dose }}</span>
+        </header>
+
+        <form class="detail-form" (ngSubmit)="save()">
+          <label>
+            Pharmacy Name <span class="required">*</span>
+            <input
+              type="text"
+              name="pharmacyName"
+              required
+              [(ngModel)]="draft.pharmacyName"
+            />
+          </label>
+
+          <label>
+            Pharmacy Phone <span class="required">*</span>
+            <input
+              type="text"
+              name="pharmacyPhone"
+              required
+              [(ngModel)]="draft.pharmacyPhone"
+            />
+          </label>
+
+          <label>
+            Pharmacy Address
+            <textarea
+              name="pharmacyAddress"
+              [(ngModel)]="draft.pharmacyAddress"
+            ></textarea>
+          </label>
+
+          <label>
+            Prescriber Name <span class="required">*</span>
+            <input
+              type="text"
+              name="prescriberName"
+              required
+              [(ngModel)]="draft.prescriberName"
+            />
+          </label>
+
+          <label>
+            Prescriber Phone <span class="required">*</span>
+            <input
+              type="text"
+              name="prescriberPhone"
+              required
+              [(ngModel)]="draft.prescriberPhone"
+            />
+          </label>
+
+          <label>
+            How to Order
+            <textarea
+              name="howToOrder"
+              [(ngModel)]="draft.howToOrder"
+            ></textarea>
+          </label>
+
+          <div class="form-field">
+            <span class="form-field-label">Last Order Date</span>
+            <span class="form-field-value">{{
+              draft.lastOrderDate ?? '—'
+            }}</span>
+          </div>
+
+          <div class="form-field">
+            <span class="form-field-label">Next Order Date</span>
+            <div class="next-order-date">
+              <app-calendar-picker
+                [selected]="draft.nextOrderDate ?? today"
+                [minDate]="minPickableDate"
+                [maxDate]="maxPickableDate"
+                (dateSelected)="pickNextOrderDate($event)"
+              />
+              <app-status-badge [nextOrderDate]="draft.nextOrderDate" />
+            </div>
+          </div>
+
+          <label>
+            Schedule Notes
+            <textarea
+              name="scheduleNotes"
+              [(ngModel)]="draft.scheduleNotes"
+            ></textarea>
+          </label>
+
+          <button type="submit" [disabled]="!canSave()">Save</button>
+        </form>
+      }
+    } @else {
+      <div class="empty-state">
+        <h3>Select a medication</h3>
+        <p>Choose from the list to view and manage order details</p>
+      </div>
+    }
+  </section>
+</div>
