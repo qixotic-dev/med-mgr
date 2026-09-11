@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>rx-order-manager</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <script>
+      // Applies the stored (or system) theme before Angular loads, so the
+      // page never flashes the wrong theme on first paint. Kept in sync
+      // with ThemeService's storage key and fallback logic.
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('theme-preference')
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+          document.documentElement.setAttribute('data-theme', theme)
+        } catch (e) {
+          // localStorage/matchMedia unavailable — the default (light) theme
+          // from styles.scss applies.
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
+</html>

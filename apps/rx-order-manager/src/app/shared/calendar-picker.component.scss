@@ -1,0 +1,64 @@
+:host {
+  display: inline-block;
+}
+
+.calendar-picker {
+  position: relative;
+}
+
+.calendar-toggle {
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.calendar-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  margin-top: 0.25rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  width: 16rem;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+
+.calendar-weekdays span {
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 0.25rem 0;
+}
+
+.calendar-grid button {
+  padding: 0.35rem 0;
+  border-radius: 4px;
+  color: var(--text);
+
+  &.selected {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}

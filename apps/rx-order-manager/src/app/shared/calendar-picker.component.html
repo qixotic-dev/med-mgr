@@ -1,0 +1,57 @@
+<div class="calendar-picker">
+  <button
+    type="button"
+    class="calendar-toggle"
+    aria-haspopup="dialog"
+    [attr.aria-expanded]="isOpen()"
+    [attr.aria-label]="'Choose a date, currently ' + selected()"
+    (click)="toggle()"
+  >
+    📅 {{ selected() }}
+  </button>
+  @if (isOpen()) {
+    <div class="calendar-popover" role="dialog" aria-label="Pick a date">
+      <div class="calendar-header">
+        <button
+          type="button"
+          aria-label="Previous month"
+          [disabled]="isPrevMonthDisabled()"
+          (click)="prevMonth()"
+        >
+          &larr;
+        </button>
+        <span>{{ monthLabel() }}</span>
+        <button
+          type="button"
+          aria-label="Next month"
+          [disabled]="isNextMonthDisabled()"
+          (click)="nextMonth()"
+        >
+          &rarr;
+        </button>
+      </div>
+      <div class="calendar-weekdays">
+        @for (day of weekdayLabels; track day) {
+          <span>{{ day }}</span>
+        }
+      </div>
+      <div class="calendar-grid">
+        @for (cell of grid(); track $index) {
+          @if (cell) {
+            <button
+              type="button"
+              [disabled]="isDisabled(cell)"
+              [class.selected]="cell === selected()"
+              [attr.aria-label]="cell"
+              (click)="selectDay(cell)"
+            >
+              {{ dayNumber(cell) }}
+            </button>
+          } @else {
+            <span></span>
+          }
+        }
+      </div>
+    </div>
+  }
+</div>

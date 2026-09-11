@@ -1,0 +1,135 @@
+/* You can add global styles to this file, and also import other style files */
+
+/* Tokens: ported from day-mgr's styles.scss (Qixotic Design System Figma
+   file, Colors page) — --warning/--warning-tint added for the reorder-status
+   "due-soon" state, which day-mgr's binary taken/missed badge has no
+   equivalent of. */
+:root {
+  color-scheme: light;
+  --bg: #b3b3b3;
+  --surface: #f7f7f7;
+  --text: #191919;
+  --muted: #404040;
+  --border: #e5e5e5;
+  --danger: #d32f2f;
+  --danger-tint: #ffffff;
+  --warning: #ed6c02;
+  --warning-tint: #ffffff;
+  --primary: #4c4c4c;
+  --badge-border: #d9d9d9;
+  --success: #006400;
+  --success-tint: #ffffff;
+  --success-text: var(--success);
+  --input-border: #999999;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #121212;
+  --surface: #1e1e1e;
+  --text: #e6e6e6;
+  --muted: #a3a3a3;
+  --border: #3a3a3a;
+  --danger: #ff6b60;
+  --danger-tint: #000000;
+  --warning: #ffa726;
+  --warning-tint: #000000;
+  --primary: #b3b3b3;
+  --badge-border: #4d4d4d;
+  --success: #4caf50;
+  --success-tint: #000000;
+  --success-text: #4caf50;
+  --input-border: #666666;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    'Roboto',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  letter-spacing: 0.15px;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  border: none;
+  background: none;
+  border-radius: 4px;
+  padding: 8px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Typography/H5 — the app header's title. */
+h1 {
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* Typography/H6 — the Prescription detail header's medication name. */
+h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.15px;
+}
+
+/* Button/Text, Color=Primary, Size=Medium */
+.text-button {
+  border: none;
+  background: none;
+  border-radius: 4px;
+  padding: 8px;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 26px;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+}
+
+/* Text Field/Outlined, Color=Default, Size=Medium */
+input[type='text'],
+textarea {
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 24px;
+  letter-spacing: 0.15px;
+  color: var(--text);
+  padding: 9px 14px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--bg);
+
+  &::placeholder {
+    color: var(--muted);
+  }
+
+  &:focus {
+    outline: none;
+    border: 2px solid var(--primary);
+    padding: 8px 13px;
+  }
+}

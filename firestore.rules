@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// Single-user app: every collection is scoped to one owner. There are
+// no per-document owner fields — the app has exactly one user, identified
+// by a hardcoded Google sign-in email that must be verified — an email
+// claim is only as trustworthy as the provider that minted it, and a uid
+// isn't stable across the Auth emulator. Matches AuthService's owner gate
+// client-side; against the emulator, sign in with a credential whose claims
+// include "email_verified": true.
+// See CONTEXT.md for why there's no backend enforcing this instead.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email.lower() == "qixoticsoftware@gmail.com"
+        && request.auth.token.email_verified == true;
+    }
+
+    match /medications/{medicationId} {
+      allow read, write: if isOwner();
+    }
+
+    match /prescriptions/{prescriptionId} {
+      allow read, write: if isOwner();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
