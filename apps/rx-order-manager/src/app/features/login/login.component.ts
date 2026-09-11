@@ -1,9 +1,9 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { AsyncPipe } from '@angular/common';
-import { Router } from '@angular/router';
-import { filter } from 'rxjs';
-import { AuthService } from '../../core/auth.service';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core'
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
+import { AsyncPipe } from '@angular/common'
+import { Router } from '@angular/router'
+import { filter } from 'rxjs'
+import { AuthService } from '../../core/auth.service'
 
 @Component({
   selector: 'app-login',
@@ -14,10 +14,10 @@ import { AuthService } from '../../core/auth.service';
   styleUrl: './login.component.scss',
 })
 export class LoginComponent {
-  private readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
+  private readonly auth = inject(AuthService)
+  private readonly router = inject(Router)
 
-  readonly session$ = this.auth.session$;
+  readonly session$ = this.auth.session$
 
   constructor() {
     // React to the session actually becoming 'authorized' rather than
@@ -30,14 +30,14 @@ export class LoginComponent {
         filter((session) => session.status === 'authorized'),
         takeUntilDestroyed(),
       )
-      .subscribe(() => this.router.navigateByUrl('/'));
+      .subscribe(() => this.router.navigateByUrl('/'))
   }
 
   async signIn(): Promise<void> {
-    await this.auth.signInWithGoogle();
+    await this.auth.signInWithGoogle()
   }
 
   async signOut(): Promise<void> {
-    await this.auth.signOut();
+    await this.auth.signOut()
   }
 }

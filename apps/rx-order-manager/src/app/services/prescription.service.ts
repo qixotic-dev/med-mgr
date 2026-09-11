@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core'
 import {
   Firestore,
   Timestamp,
@@ -7,25 +7,25 @@ import {
   doc,
   docData,
   setDoc,
-} from '@angular/fire/firestore';
-import { Observable, map } from 'rxjs';
-import type { DateKey } from '../util/date-key';
-import type { Prescription } from '../models/prescription.model';
-import { emptyPrescription } from '../models/prescription.model';
+} from '@angular/fire/firestore'
+import { Observable, map } from 'rxjs'
+import type { DateKey } from '../util/date-key'
+import type { Prescription } from '../models/prescription.model'
+import { emptyPrescription } from '../models/prescription.model'
 
-const COLLECTION = 'prescriptions';
+const COLLECTION = 'prescriptions'
 
 interface PrescriptionDoc {
-  pharmacyName: string;
-  pharmacyPhone: string;
-  pharmacyAddress: string;
-  prescriberName: string;
-  prescriberPhone: string;
-  howToOrder: string;
-  lastOrderDate: DateKey | null;
-  nextOrderDate: DateKey | null;
-  scheduleNotes: string;
-  updatedAt: Timestamp | null;
+  pharmacyName: string
+  pharmacyPhone: string
+  pharmacyAddress: string
+  prescriberName: string
+  prescriberPhone: string
+  howToOrder: string
+  lastOrderDate: DateKey | null
+  nextOrderDate: DateKey | null
+  scheduleNotes: string
+  updatedAt: Timestamp | null
 }
 
 function toPrescription(
@@ -36,7 +36,7 @@ function toPrescription(
     medicationId,
     ...data,
     updatedAt: data.updatedAt ? data.updatedAt.toDate() : null,
-  };
+  }
 }
 
 /**
@@ -47,14 +47,14 @@ function toPrescription(
  */
 @Injectable({ providedIn: 'root' })
 export class PrescriptionService {
-  private readonly firestore = inject(Firestore);
+  private readonly firestore = inject(Firestore)
 
   /** Every Prescription — what the sidebar's reorder-status badges are computed from. */
   readonly all$: Observable<Prescription[]> = (
     collectionData(collection(this.firestore, COLLECTION), {
       idField: 'medicationId',
     }) as Observable<(PrescriptionDoc & { medicationId: string })[]>
-  ).pipe(map((docs) => docs.map((d) => toPrescription(d.medicationId, d))));
+  ).pipe(map((docs) => docs.map((d) => toPrescription(d.medicationId, d))))
 
   byMedicationId$(medicationId: string): Observable<Prescription> {
     return (
@@ -67,7 +67,7 @@ export class PrescriptionService {
           ? toPrescription(medicationId, data)
           : emptyPrescription(medicationId),
       ),
-    );
+    )
   }
 
   async save(
@@ -78,6 +78,6 @@ export class PrescriptionService {
       doc(this.firestore, COLLECTION, medicationId),
       { ...changes, updatedAt: Timestamp.now() },
       { merge: true },
-    );
+    )
   }
 }

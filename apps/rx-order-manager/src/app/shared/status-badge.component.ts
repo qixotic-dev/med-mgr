@@ -3,9 +3,9 @@ import {
   Component,
   computed,
   input,
-} from '@angular/core';
-import type { DateKey } from '../util/date-key';
-import { reorderStatus, reorderStatusLabel } from '../util/reorder-status';
+} from '@angular/core'
+import type { DateKey } from '../util/date-key'
+import { reorderStatus, reorderStatusLabel } from '../util/reorder-status'
 
 /**
  * Read-only status pill for a Prescription's reorder urgency (see
@@ -22,8 +22,8 @@ import { reorderStatus, reorderStatusLabel } from '../util/reorder-status';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StatusBadgeComponent {
-  readonly nextOrderDate = input.required<DateKey | null>();
+  readonly nextOrderDate = input.required<DateKey | null>()
 
-  readonly status = computed(() => reorderStatus(this.nextOrderDate()));
-  readonly label = computed(() => reorderStatusLabel(this.nextOrderDate()));
+  readonly status = computed(() => reorderStatus(this.nextOrderDate()))
+  readonly label = computed(() => reorderStatusLabel(this.nextOrderDate()))
 }

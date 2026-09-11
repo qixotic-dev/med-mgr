@@ -1,8 +1,8 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal } from '@angular/core'
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark'
 
-const STORAGE_KEY = 'theme-preference';
+const STORAGE_KEY = 'theme-preference'
 
 /** Light/dark theme, persisted to localStorage and applied via a `data-theme`
  * attribute on `<html>` (see the matching inline script in index.html, which
@@ -10,21 +10,21 @@ const STORAGE_KEY = 'theme-preference';
  * the wrong theme). */
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
-  readonly theme = signal<Theme>(readInitialTheme());
+  readonly theme = signal<Theme>(readInitialTheme())
 
   constructor() {
-    applyTheme(this.theme());
+    applyTheme(this.theme())
   }
 
   toggle(): void {
-    this.set(this.theme() === 'dark' ? 'light' : 'dark');
+    this.set(this.theme() === 'dark' ? 'light' : 'dark')
   }
 
   set(theme: Theme): void {
-    this.theme.set(theme);
-    applyTheme(theme);
+    this.theme.set(theme)
+    applyTheme(theme)
     try {
-      localStorage.setItem(STORAGE_KEY, theme);
+      localStorage.setItem(STORAGE_KEY, theme)
     } catch {
       // Storage can be unavailable (private browsing, disabled cookies) —
       // the toggle still works for the session, it just won't persist.
@@ -34,23 +34,23 @@ export class ThemeService {
 
 function readInitialTheme(): Theme {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY)
     if (stored === 'light' || stored === 'dark') {
-      return stored;
+      return stored
     }
   } catch {
     // ignore and fall through to the system preference
   }
-  return prefersDark() ? 'dark' : 'light';
+  return prefersDark() ? 'dark' : 'light'
 }
 
 function prefersDark(): boolean {
   return (
     typeof matchMedia === 'function' &&
     matchMedia('(prefers-color-scheme: dark)').matches
-  );
+  )
 }
 
 function applyTheme(theme: Theme): void {
-  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.setAttribute('data-theme', theme)
 }

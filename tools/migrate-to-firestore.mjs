@@ -22,9 +22,9 @@
 //
 // --project defaults to the "prod" alias in .firebaserc.
 
-import { readFile } from 'node:fs/promises';
-import { applicationDefault, initializeApp } from 'firebase-admin/app';
-import { Timestamp, getFirestore } from 'firebase-admin/firestore';
+import { readFile } from 'node:fs/promises'
+import { applicationDefault, initializeApp } from 'firebase-admin/app'
+import { Timestamp, getFirestore } from 'firebase-admin/firestore'
 
 // Ported verbatim from the old Electron app's hardcoded medication list --
 // this app has never supported adding/editing medications through its own
@@ -145,27 +145,27 @@ const MEDICATIONS = [
     category: 'BoneHealth',
     intervalDays: 30,
   },
-];
+]
 
 function parseArgs(argv) {
-  const args = { driveJsonPath: null, project: null };
+  const args = { driveJsonPath: null, project: null }
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--drive-json') args.driveJsonPath = argv[++i];
-    else if (argv[i] === '--project') args.project = argv[++i];
+    if (argv[i] === '--drive-json') args.driveJsonPath = argv[++i]
+    else if (argv[i] === '--project') args.project = argv[++i]
   }
-  return args;
+  return args
 }
 
 async function resolveProjectId(explicitProject) {
-  if (explicitProject) return explicitProject;
-  const firebaserc = JSON.parse(await readFile('.firebaserc', 'utf8'));
-  const projectId = firebaserc.projects?.prod;
+  if (explicitProject) return explicitProject
+  const firebaserc = JSON.parse(await readFile('.firebaserc', 'utf8'))
+  const projectId = firebaserc.projects?.prod
   if (!projectId || projectId === 'REPLACE_WITH_FIREBASE_PROJECT_ID') {
     throw new Error(
       'No --project given and .firebaserc has no real "prod" project ID yet.',
-    );
+    )
   }
-  return projectId;
+  return projectId
 }
 
 // Old Drive field name -> new Prescription field name (see
@@ -186,52 +186,52 @@ function toPrescription(order) {
     updatedAt: order.updatedAt
       ? Timestamp.fromDate(new Date(order.updatedAt))
       : Timestamp.now(),
-  };
+  }
 }
 
 async function main() {
-  const { driveJsonPath, project } = parseArgs(process.argv.slice(2));
-  const projectId = await resolveProjectId(project);
-  const usingEmulator = !!process.env.FIRESTORE_EMULATOR_HOST;
+  const { driveJsonPath, project } = parseArgs(process.argv.slice(2))
+  const projectId = await resolveProjectId(project)
+  const usingEmulator = !!process.env.FIRESTORE_EMULATOR_HOST
 
   initializeApp(
     usingEmulator
       ? { projectId }
       : { credential: applicationDefault(), projectId },
-  );
-  const db = getFirestore();
+  )
+  const db = getFirestore()
 
-  const medicationsBatch = db.batch();
+  const medicationsBatch = db.batch()
   for (const { id, ...data } of MEDICATIONS) {
-    medicationsBatch.set(db.collection('medications').doc(id), data);
+    medicationsBatch.set(db.collection('medications').doc(id), data)
   }
-  await medicationsBatch.commit();
-  console.log(`Seeded ${MEDICATIONS.length} medications into "${projectId}".`);
+  await medicationsBatch.commit()
+  console.log(`Seeded ${MEDICATIONS.length} medications into "${projectId}".`)
 
   if (!driveJsonPath) {
-    console.log('No --drive-json given -- skipped seeding prescriptions.');
-    return;
+    console.log('No --drive-json given -- skipped seeding prescriptions.')
+    return
   }
 
-  const ordersData = JSON.parse(await readFile(driveJsonPath, 'utf8'));
-  const knownIds = new Set(MEDICATIONS.map((m) => m.id));
-  const prescriptionsBatch = db.batch();
-  let seeded = 0;
+  const ordersData = JSON.parse(await readFile(driveJsonPath, 'utf8'))
+  const knownIds = new Set(MEDICATIONS.map((m) => m.id))
+  const prescriptionsBatch = db.batch()
+  let seeded = 0
   for (const [medicationId, order] of Object.entries(ordersData)) {
     if (!knownIds.has(medicationId)) {
       console.warn(
         `Skipping unknown medication id "${medicationId}" in ${driveJsonPath}.`,
-      );
-      continue;
+      )
+      continue
     }
     prescriptionsBatch.set(
       db.collection('prescriptions').doc(medicationId),
       toPrescription(order),
-    );
-    seeded++;
+    )
+    seeded++
   }
-  await prescriptionsBatch.commit();
-  console.log(`Seeded ${seeded} prescriptions from ${driveJsonPath}.`);
+  await prescriptionsBatch.commit()
+  console.log(`Seeded ${seeded} prescriptions from ${driveJsonPath}.`)
 }
 
-await main();
+await main()

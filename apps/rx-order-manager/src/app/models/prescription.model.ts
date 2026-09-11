@@ -1,4 +1,4 @@
-import type { DateKey } from '../util/date-key';
+import type { DateKey } from '../util/date-key'
 
 /**
  * The reorder logistics for one Medication: which pharmacy, which
@@ -8,17 +8,17 @@ import type { DateKey } from '../util/date-key';
  * autoId. See CONTEXT.md.
  */
 export interface Prescription {
-  medicationId: string;
-  pharmacyName: string;
-  pharmacyPhone: string;
-  pharmacyAddress: string;
-  prescriberName: string;
-  prescriberPhone: string;
-  howToOrder: string;
-  lastOrderDate: DateKey | null;
-  nextOrderDate: DateKey | null;
-  scheduleNotes: string;
-  updatedAt: Date | null;
+  medicationId: string
+  pharmacyName: string
+  pharmacyPhone: string
+  pharmacyAddress: string
+  prescriberName: string
+  prescriberPhone: string
+  howToOrder: string
+  lastOrderDate: DateKey | null
+  nextOrderDate: DateKey | null
+  scheduleNotes: string
+  updatedAt: Date | null
 }
 
 export function emptyPrescription(medicationId: string): Prescription {
@@ -34,5 +34,5 @@ export function emptyPrescription(medicationId: string): Prescription {
     nextOrderDate: null,
     scheduleNotes: '',
     updatedAt: null,
-  };
+  }
 }

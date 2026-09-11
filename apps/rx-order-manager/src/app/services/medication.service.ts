@@ -1,15 +1,15 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core'
 import {
   Firestore,
   collection,
   collectionData,
   orderBy,
   query,
-} from '@angular/fire/firestore';
-import { Observable } from 'rxjs';
-import type { Medication } from '../models/medication.model';
+} from '@angular/fire/firestore'
+import { Observable } from 'rxjs'
+import type { Medication } from '../models/medication.model'
 
-const COLLECTION = 'medications';
+const COLLECTION = 'medications'
 
 /**
  * The fixed medication reference list (see CONTEXT.md) — read-only from the
@@ -21,7 +21,7 @@ const COLLECTION = 'medications';
  */
 @Injectable({ providedIn: 'root' })
 export class MedicationService {
-  private readonly firestore = inject(Firestore);
+  private readonly firestore = inject(Firestore)
 
   /** Every medication, grouped/sorted for the category-tree sidebar. */
   readonly all$: Observable<Medication[]> = collectionData(
@@ -31,5 +31,5 @@ export class MedicationService {
       orderBy('name'),
     ),
     { idField: 'id' },
-  ) as Observable<Medication[]>;
+  ) as Observable<Medication[]>
 }

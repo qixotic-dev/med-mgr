@@ -4,9 +4,9 @@
  * different app. See CONTEXT.md.
  */
 export interface Medication {
-  id: string;
-  name: string;
-  dose: string;
-  category: string;
-  intervalDays: number;
+  id: string
+  name: string
+  dose: string
+  category: string
+  intervalDays: number
 }

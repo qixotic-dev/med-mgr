@@ -4,9 +4,9 @@
 // router handle it. Copying index.html to 404.html is the standard
 // workaround: GitHub Pages serves it for the unmatched path, the browser
 // loads the Angular app, and the router takes over from there.
-import { copyFile } from 'node:fs/promises';
+import { copyFile } from 'node:fs/promises'
 
-const DIST_DIR = 'dist/apps/rx-order-manager/browser';
+const DIST_DIR = 'dist/apps/rx-order-manager/browser'
 
-await copyFile(`${DIST_DIR}/index.html`, `${DIST_DIR}/404.html`);
-console.log(`Copied ${DIST_DIR}/index.html -> ${DIST_DIR}/404.html`);
+await copyFile(`${DIST_DIR}/index.html`, `${DIST_DIR}/404.html`)
+console.log(`Copied ${DIST_DIR}/index.html -> ${DIST_DIR}/404.html`)
