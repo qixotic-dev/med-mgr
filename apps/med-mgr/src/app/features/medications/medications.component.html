@@ -91,6 +91,11 @@
         </label>
 
         <button type="submit" [disabled]="!canSave()">Save</button>
+        @if (selectedId()) {
+          <button type="button" class="delete-button" (click)="delete()">
+            Delete
+          </button>
+        }
       </form>
     } @else {
       <div class="empty-state">

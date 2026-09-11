@@ -210,6 +210,36 @@ export class MedicationsComponent {
       this.isNewCategory = false
     }
   }
+
+  async delete(): Promise<void> {
+    const id = this.selectedId()
+    if (!id) {
+      return
+    }
+    // Falls back to the id if medications() hasn't caught up with a
+    // just-created selection yet (see the "still catching up" case in
+    // save()) -- the confirm text degrades gracefully rather than silently
+    // no-opping the delete.
+    const name = this.selectedMedication()?.name ?? id
+    if (!window.confirm(`Delete ${name}? This cannot be undone.`)) {
+      return
+    }
+    this.error.set(null)
+    try {
+      await this.medicationService.delete(id)
+    } catch {
+      this.error.set('Failed to delete. Please try again.')
+      return
+    }
+    // Only clear the form if the user is still on this same selection --
+    // otherwise this stale completion would clobber whatever they've since
+    // switched to, mirroring the guard in save().
+    if (this.selectedId() === id) {
+      this.selectedId.set(null)
+      this.draft = null
+      this.isNewCategory = false
+    }
+  }
 }
 
 /** Medications grouped by category, in first-encountered order. Exported

@@ -13,7 +13,7 @@ import type { DateKey } from '../util/date-key'
 import type { Prescription } from '../models/prescription.model'
 import { emptyPrescription } from '../models/prescription.model'
 
-const COLLECTION = 'prescriptions'
+export const PRESCRIPTIONS_COLLECTION = 'prescriptions'
 
 interface PrescriptionDoc {
   pharmacyName: string
@@ -51,16 +51,16 @@ export class PrescriptionService {
 
   /** Every Prescription — what the sidebar's reorder-status badges are computed from. */
   readonly all$: Observable<Prescription[]> = (
-    collectionData(collection(this.firestore, COLLECTION), {
+    collectionData(collection(this.firestore, PRESCRIPTIONS_COLLECTION), {
       idField: 'medicationId',
     }) as Observable<(PrescriptionDoc & { medicationId: string })[]>
   ).pipe(map((docs) => docs.map((d) => toPrescription(d.medicationId, d))))
 
   byMedicationId$(medicationId: string): Observable<Prescription> {
     return (
-      docData(doc(this.firestore, COLLECTION, medicationId)) as Observable<
-        PrescriptionDoc | undefined
-      >
+      docData(
+        doc(this.firestore, PRESCRIPTIONS_COLLECTION, medicationId),
+      ) as Observable<PrescriptionDoc | undefined>
     ).pipe(
       map((data) =>
         data
@@ -75,7 +75,7 @@ export class PrescriptionService {
     changes: Omit<Prescription, 'medicationId' | 'updatedAt'>,
   ): Promise<void> {
     await setDoc(
-      doc(this.firestore, COLLECTION, medicationId),
+      doc(this.firestore, PRESCRIPTIONS_COLLECTION, medicationId),
       { ...changes, updatedAt: Timestamp.now() },
       { merge: true },
     )

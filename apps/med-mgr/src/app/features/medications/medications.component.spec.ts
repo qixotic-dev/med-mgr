@@ -27,6 +27,7 @@ describe('MedicationsComponent', () => {
 
   let createSpy: jest.Mock
   let updateSpy: jest.Mock
+  let deleteSpy: jest.Mock
 
   function setup(
     source: Observable<Medication[]> = new BehaviorSubject([
@@ -36,12 +37,18 @@ describe('MedicationsComponent', () => {
   ) {
     createSpy = jest.fn().mockResolvedValue(undefined)
     updateSpy = jest.fn().mockResolvedValue(undefined)
+    deleteSpy = jest.fn().mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       imports: [MedicationsComponent],
       providers: [
         {
           provide: MedicationService,
-          useValue: { all$: source, create: createSpy, update: updateSpy },
+          useValue: {
+            all$: source,
+            create: createSpy,
+            update: updateSpy,
+            delete: deleteSpy,
+          },
         },
       ],
     })
@@ -309,6 +316,96 @@ describe('MedicationsComponent', () => {
       await savePromise
 
       expect(component.selectedId()).toBe('aspirin')
+    })
+  })
+
+  describe('delete', () => {
+    afterEach(() => {
+      jest.restoreAllMocks()
+    })
+
+    it('still deletes when selectedId is set but medications() has not caught up yet', async () => {
+      // Mirrors save()'s "selects the newly created medication even if the
+      // collection snapshot has not caught up yet" case -- selectedId() can
+      // be truthy while selectedMedication() is still null.
+      const fixture = setup(new BehaviorSubject<Medication[]>([]))
+      const component = fixture.componentInstance
+      component.selectedId.set('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+
+      await component.delete()
+
+      expect(deleteSpy).toHaveBeenCalledWith('aspirin')
+    })
+
+    it('does nothing if nothing is selected', async () => {
+      const fixture = setup()
+      const confirmSpy = jest.spyOn(window, 'confirm')
+      await fixture.componentInstance.delete()
+      expect(confirmSpy).not.toHaveBeenCalled()
+      expect(deleteSpy).not.toHaveBeenCalled()
+    })
+
+    it('asks for confirmation and does not delete if the user cancels', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+      await component.delete()
+
+      expect(deleteSpy).not.toHaveBeenCalled()
+      expect(component.selectedId()).toBe('aspirin')
+    })
+
+    it('deletes the selected medication and clears the form on confirm', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+
+      await component.delete()
+
+      expect(deleteSpy).toHaveBeenCalledWith('aspirin')
+      expect(component.selectedId()).toBeNull()
+      expect(component.draft).toBeNull()
+    })
+
+    it('sets an error and keeps the selection if delete() rejects', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+      deleteSpy.mockRejectedValue(new Error('offline'))
+
+      await component.delete()
+
+      expect(component.error()).toBeTruthy()
+      expect(component.selectedId()).toBe('aspirin')
+    })
+
+    it('does not clobber a newer selection if an earlier delete() is still resolving', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      let resolveDelete: () => void = () => {
+        throw new Error('delete() was not called')
+      }
+      deleteSpy.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveDelete = resolve
+          }),
+      )
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+
+      const deletePromise = component.delete()
+      component.select('ibuprofen')
+
+      resolveDelete()
+      await deletePromise
+
+      expect(component.selectedId()).toBe('ibuprofen')
     })
   })
 
