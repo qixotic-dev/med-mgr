@@ -57,6 +57,7 @@
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-playwright": "^2.11.0",
+    "firebase-admin": "^14.3.0",
     "firebase-tools": "^15.29.0",
     "jest": "30.5.1",
     "jest-environment-jsdom": "30.5.1",
