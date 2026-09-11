@@ -161,20 +161,28 @@ export class PrescriptionsComponent {
     if (!medicationId || !draft || !this.canSave()) {
       return
     }
+    // Snapshot what's actually being sent -- `draft`'s fields keep mutating
+    // in place via [(ngModel)] while the write below is in flight, so
+    // reading them again after the await would record whatever the user
+    // has typed *since* Save was clicked, not what was actually persisted.
+    const submitted = { ...draft }
     await this.prescriptionService.save(medicationId, {
-      pharmacyName: draft.pharmacyName,
-      pharmacyPhone: draft.pharmacyPhone,
-      pharmacyAddress: draft.pharmacyAddress,
-      prescriberName: draft.prescriberName,
-      prescriberPhone: draft.prescriberPhone,
-      howToOrder: draft.howToOrder,
-      lastOrderDate: draft.lastOrderDate,
-      nextOrderDate: draft.nextOrderDate,
-      scheduleNotes: draft.scheduleNotes,
+      pharmacyName: submitted.pharmacyName,
+      pharmacyPhone: submitted.pharmacyPhone,
+      pharmacyAddress: submitted.pharmacyAddress,
+      prescriberName: submitted.prescriberName,
+      prescriberPhone: submitted.prescriberPhone,
+      howToOrder: submitted.howToOrder,
+      lastOrderDate: submitted.lastOrderDate,
+      nextOrderDate: submitted.nextOrderDate,
+      scheduleNotes: submitted.scheduleNotes,
     })
-    // A separate copy -- see the reconcile effect's comment above for why
-    // draftBaseline must never alias `draft`.
-    this.draftBaseline = { ...draft }
+    // Only adopt this as the new baseline if the user is still on the same
+    // medication -- if they've since selected another one, select() already
+    // set its own draft/baseline and this stale write shouldn't touch it.
+    if (this.selectedId() === medicationId) {
+      this.draftBaseline = submitted
+    }
   }
 
   /** Picking a date both updates the draft and, matching the old app,

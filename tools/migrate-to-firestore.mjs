@@ -15,12 +15,15 @@
 // Credentials -- firebase-admin's Application Default Credentials:
 //   - Local Emulator Suite (dry run): start it with `pnpm run emulators`,
 //     then in another terminal set FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
-//     before running this script -- no real credentials needed.
+//     before running this script -- no real credentials needed. With
+//     FIRESTORE_EMULATOR_HOST set, --project defaults to the "default"
+//     alias (the same demo project the Angular dev environment connects
+//     to), not "prod" -- otherwise a dry run silently seeds a project ID
+//     the running app was never looking at.
 //   - The real project: Firebase console -> Project settings -> Service
 //     accounts -> Generate new private key, then set
 //     GOOGLE_APPLICATION_CREDENTIALS to the downloaded file's path.
-//
-// --project defaults to the "prod" alias in .firebaserc.
+//     --project defaults to the "prod" alias in .firebaserc.
 
 import { readFile } from 'node:fs/promises'
 import { applicationDefault, initializeApp } from 'firebase-admin/app'
@@ -156,9 +159,18 @@ function parseArgs(argv) {
   return args
 }
 
-async function resolveProjectId(explicitProject) {
+async function resolveProjectId(explicitProject, usingEmulator) {
   if (explicitProject) return explicitProject
   const firebaserc = JSON.parse(await readFile('.firebaserc', 'utf8'))
+  if (usingEmulator) {
+    const defaultProjectId = firebaserc.projects?.default
+    if (!defaultProjectId) {
+      throw new Error(
+        'No --project given and .firebaserc has no "default" project ID for the emulator.',
+      )
+    }
+    return defaultProjectId
+  }
   const projectId = firebaserc.projects?.prod
   if (!projectId || projectId === 'REPLACE_WITH_FIREBASE_PROJECT_ID') {
     throw new Error(
@@ -191,8 +203,8 @@ function toPrescription(order) {
 
 async function main() {
   const { driveJsonPath, project } = parseArgs(process.argv.slice(2))
-  const projectId = await resolveProjectId(project)
   const usingEmulator = !!process.env.FIRESTORE_EMULATOR_HOST
+  const projectId = await resolveProjectId(project, usingEmulator)
 
   initializeApp(
     usingEmulator

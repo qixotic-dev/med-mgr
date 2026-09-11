@@ -31,9 +31,11 @@ describe('PrescriptionsComponent', () => {
   }
 
   let prescriptions$: BehaviorSubject<Prescription[]>
+  let saveSpy: jest.Mock
 
   function setup() {
     prescriptions$ = new BehaviorSubject<Prescription[]>([])
+    saveSpy = jest.fn().mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       imports: [PrescriptionsComponent],
       providers: [
@@ -41,7 +43,10 @@ describe('PrescriptionsComponent', () => {
           provide: MedicationService,
           useValue: { all$: new BehaviorSubject<Medication[]>([medication]) },
         },
-        { provide: PrescriptionService, useValue: { all$: prescriptions$ } },
+        {
+          provide: PrescriptionService,
+          useValue: { all$: prescriptions$, save: saveSpy },
+        },
         { provide: CalendarService, useValue: { scheduleReminder: jest.fn() } },
       ],
     })
@@ -99,5 +104,49 @@ describe('PrescriptionsComponent', () => {
     await fixture.whenStable()
 
     expect(component.draft).toBe(draftAfterSelect)
+  })
+
+  it('does not fold in-flight typing into the baseline set by an in-progress save()', async () => {
+    const fixture = setup()
+    const component = fixture.componentInstance
+
+    component.select('med-1')
+    if (component.draft === null) {
+      throw new Error('expected select() to set a draft')
+    }
+    component.draft.pharmacyName = 'Original Pharmacy'
+    component.draft.pharmacyPhone = '555-0000'
+    component.draft.prescriberName = 'Dr. Original'
+    component.draft.prescriberPhone = '555-0001'
+
+    const deferred: { resolve?: () => void } = {}
+    saveSpy.mockReturnValue(
+      new Promise<void>((resolve) => {
+        deferred.resolve = resolve
+      }),
+    )
+    const savePromise = component.save()
+
+    // The user keeps typing while the write above is still in flight.
+    component.draft.pharmacyName = 'Newer Edit'
+    deferred.resolve?.()
+    await savePromise
+
+    // A snapshot echoing back exactly what was actually submitted (the
+    // pre-edit values) arrives -- it must not be treated as "already
+    // reflected in the draft" and clobber the newer, unsaved edit.
+    prescriptions$.next([
+      {
+        ...savedPrescription,
+        medicationId: 'med-1',
+        pharmacyName: 'Original Pharmacy',
+        pharmacyPhone: '555-0000',
+        prescriberName: 'Dr. Original',
+        prescriberPhone: '555-0001',
+      },
+    ])
+    await fixture.whenStable()
+
+    expect(component.draft?.pharmacyName).toBe('Newer Edit')
   })
 })
