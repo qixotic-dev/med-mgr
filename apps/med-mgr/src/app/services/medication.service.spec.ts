@@ -13,6 +13,7 @@ jest.mock('@angular/fire/firestore', () => ({
   doc: jest.fn(() => 'doc-ref'),
   setDoc: jest.fn().mockResolvedValue(undefined),
   updateDoc: jest.fn().mockResolvedValue(undefined),
+  writeBatch: jest.fn(),
 }))
 
 describe('MedicationService', () => {
@@ -54,5 +55,29 @@ describe('MedicationService', () => {
     expect(firestoreFns.updateDoc).toHaveBeenCalledWith('doc-ref', {
       intervalDays: 45,
     })
+  })
+
+  it('delete() deletes the medication and its prescription in one batch', async () => {
+    const batchDeleteSpy = jest.fn()
+    const batchCommitSpy = jest.fn().mockResolvedValue(undefined)
+    ;(firestoreFns.writeBatch as jest.Mock).mockReturnValue({
+      delete: batchDeleteSpy,
+      commit: batchCommitSpy,
+    })
+    ;(firestoreFns.doc as jest.Mock)
+      .mockReturnValueOnce('med-ref')
+      .mockReturnValueOnce('rx-ref')
+
+    await service.delete('aspirin')
+
+    expect(firestoreFns.doc).toHaveBeenCalledWith({}, 'medications', 'aspirin')
+    expect(firestoreFns.doc).toHaveBeenCalledWith(
+      {},
+      'prescriptions',
+      'aspirin',
+    )
+    expect(batchDeleteSpy).toHaveBeenNthCalledWith(1, 'med-ref')
+    expect(batchDeleteSpy).toHaveBeenNthCalledWith(2, 'rx-ref')
+    expect(batchCommitSpy).toHaveBeenCalledTimes(1)
   })
 })

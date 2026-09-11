@@ -120,6 +120,19 @@
       cursor: default;
     }
   }
+
+  .delete-button {
+    align-self: flex-start;
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 0.6rem 1.5rem;
+
+    &:hover {
+      background: var(--danger);
+      color: var(--surface);
+    }
+  }
 }
 
 .empty-state {
