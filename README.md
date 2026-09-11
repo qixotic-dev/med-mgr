@@ -20,9 +20,10 @@ npx nx e2e rx-order-manager-e2e # e2e tests (Playwright)
 
 ## Data
 
-`MedicationService` is read-only, so a fresh emulator instance or a new
-production project starts with an empty `medications` collection -- the
-sidebar stays empty until the fixed medication list is seeded once:
+`MedicationService` can now create and update medications, but a fresh
+emulator instance or a new production project still starts with an empty
+`medications` collection -- seed the initial list once so the sidebar has
+data to show:
 
 ```bash
 node tools/migrate-to-firestore.mjs                                    # against pnpm run dev's emulator, or the real project (see the script's header comment for credentials)

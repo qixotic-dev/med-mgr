@@ -1,8 +1,8 @@
 // One-time migration: seeds Firestore from the old Electron app's data. See
 // docs/adr/0001-firestore-over-drive-for-persistence.md. Run once against
 // the real project, then this script (and its --drive-json input) can be
-// deleted -- nothing else writes to `medications`, and PrescriptionService
-// only ever merges Prescription docs saved from the UI.
+// deleted -- the app can now create/update `medications`, and
+// PrescriptionService only ever merges Prescription docs saved from the UI.
 //
 // Usage:
 //   node tools/migrate-to-firestore.mjs [--drive-json <path>] [--project <id>]
