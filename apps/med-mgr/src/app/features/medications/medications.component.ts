@@ -1,0 +1,177 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  signal,
+} from '@angular/core'
+import { toSignal } from '@angular/core/rxjs-interop'
+import { FormsModule } from '@angular/forms'
+import { MedicationService } from '../../services/medication.service'
+import type { Medication } from '../../models/medication.model'
+
+export interface CategoryGroup {
+  category: string
+  items: Medication[]
+}
+
+/** Sentinel <option> value for "Add new category…" — never a real category,
+ * since real categories come from existing Medication.category values. */
+const NEW_CATEGORY_OPTION = '__new__'
+
+function emptyMedication(): Omit<Medication, 'id'> {
+  return { name: '', dose: '', category: '', intervalDays: 0 }
+}
+
+/** Slugifies a name into a Firestore-safe id matching the seed data's
+ * convention (e.g. 'aspirin') — see MedicationService.create()'s doc
+ * comment. */
+function slugify(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/**
+ * Add/edit page for the Medication catalog (see CONTEXT.md). Mirrors
+ * PrescriptionsComponent's category-tree sidebar + detail-form shape, but
+ * edits the Medication itself (name/dose/category/intervalDays) via
+ * MedicationService.create()/update() rather than Prescription reorder
+ * logistics.
+ */
+@Component({
+  selector: 'app-medications',
+  standalone: true,
+  imports: [FormsModule],
+  templateUrl: './medications.component.html',
+  styleUrl: './medications.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class MedicationsComponent {
+  private readonly medicationService = inject(MedicationService)
+
+  protected readonly NEW_CATEGORY_OPTION = NEW_CATEGORY_OPTION
+
+  /** `undefined` until all$ has emitted at least once — distinguishes "no
+   * medications yet" from "haven't heard from Firestore yet", which matters
+   * for the create-mode collision check in save() (see canSave()). */
+  private readonly medicationsSnapshot = toSignal(this.medicationService.all$)
+  private readonly medications = computed(
+    () => this.medicationsSnapshot() ?? [],
+  )
+  private readonly medicationsLoaded = computed(
+    () => this.medicationsSnapshot() !== undefined,
+  )
+
+  readonly categories = computed(() => groupByCategory(this.medications()))
+  readonly categoryOptions = computed(() => [
+    ...new Set(this.medications().map((m) => m.category)),
+  ])
+
+  readonly selectedId = signal<string | null>(null)
+  readonly selectedMedication = computed(
+    () => this.medications().find((m) => m.id === this.selectedId()) ?? null,
+  )
+
+  readonly error = signal<string | null>(null)
+
+  /** Editable copy of the selected (or new) medication — a plain field, not
+   * a signal, so `[(ngModel)]` can mutate it in place; see
+   * PrescriptionsComponent.draft's doc comment for why. `null` means
+   * nothing selected and not adding (empty state). */
+  draft: Omit<Medication, 'id'> | null = null
+  isNewCategory = false
+
+  select(medicationId: string): void {
+    const medication = this.medications().find((m) => m.id === medicationId)
+    if (!medication) {
+      return
+    }
+    this.selectedId.set(medicationId)
+    this.error.set(null)
+    this.isNewCategory = false
+    this.draft = {
+      name: medication.name,
+      dose: medication.dose,
+      category: medication.category,
+      intervalDays: medication.intervalDays,
+    }
+  }
+
+  startAdd(): void {
+    this.selectedId.set(null)
+    this.error.set(null)
+    this.isNewCategory = false
+    this.draft = emptyMedication()
+  }
+
+  onCategorySelect(value: string): void {
+    if (!this.draft) {
+      return
+    }
+    this.isNewCategory = value === NEW_CATEGORY_OPTION
+    this.draft.category = this.isNewCategory ? '' : value
+  }
+
+  canSave(): boolean {
+    const draft = this.draft
+    if (
+      !draft ||
+      draft.name.trim() === '' ||
+      draft.dose.trim() === '' ||
+      draft.category.trim() === '' ||
+      !Number.isInteger(draft.intervalDays) ||
+      draft.intervalDays <= 0
+    ) {
+      return false
+    }
+    // Creating needs a real medications snapshot to check the generated id
+    // against — see the collision guard in save().
+    return this.selectedId() !== null || this.medicationsLoaded()
+  }
+
+  async save(): Promise<void> {
+    const draft = this.draft
+    if (!draft || !this.canSave()) {
+      return
+    }
+    this.error.set(null)
+
+    const id = this.selectedId()
+    if (id) {
+      await this.medicationService.update(id, { ...draft })
+      return
+    }
+
+    const newId = slugify(draft.name)
+    if (!newId) {
+      this.error.set('Name must contain at least one letter or number.')
+      return
+    }
+    if (this.medications().some((m) => m.id === newId)) {
+      this.error.set(
+        'A medication with this name already exists — edit it instead.',
+      )
+      return
+    }
+    await this.medicationService.create(newId, { ...draft })
+    // Best-effort: relies on the just-created doc already being in the
+    // local Firestore cache (and thus in medications()) by the time
+    // create() resolves, same as PrescriptionsComponent's optimistic reads.
+    this.select(newId)
+  }
+}
+
+/** Medications grouped by category, in first-encountered order. Exported
+ * for direct unit testing. */
+export function groupByCategory(medications: Medication[]): CategoryGroup[] {
+  const groups = new Map<string, Medication[]>()
+  for (const medication of medications) {
+    const items = groups.get(medication.category) ?? []
+    items.push(medication)
+    groups.set(medication.category, items)
+  }
+  return Array.from(groups, ([category, items]) => ({ category, items }))
+}

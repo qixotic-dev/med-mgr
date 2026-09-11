@@ -1,0 +1,212 @@
+import { TestBed } from '@angular/core/testing'
+import { BehaviorSubject, Observable, Subject } from 'rxjs'
+import { MedicationService } from '../../services/medication.service'
+import type { Medication } from '../../models/medication.model'
+import { groupByCategory, MedicationsComponent } from './medications.component'
+
+describe('MedicationsComponent', () => {
+  const aspirin: Medication = {
+    id: 'aspirin',
+    name: 'Aspirin',
+    dose: '81mg',
+    category: 'Heart',
+    intervalDays: 90,
+  }
+  const ibuprofen: Medication = {
+    id: 'ibuprofen',
+    name: 'Ibuprofen',
+    dose: '200mg',
+    category: 'Pain',
+    intervalDays: 30,
+  }
+
+  let createSpy: jest.Mock
+  let updateSpy: jest.Mock
+
+  function setup(
+    source: Observable<Medication[]> = new BehaviorSubject([
+      aspirin,
+      ibuprofen,
+    ]),
+  ) {
+    createSpy = jest.fn().mockResolvedValue(undefined)
+    updateSpy = jest.fn().mockResolvedValue(undefined)
+    TestBed.configureTestingModule({
+      imports: [MedicationsComponent],
+      providers: [
+        {
+          provide: MedicationService,
+          useValue: { all$: source, create: createSpy, update: updateSpy },
+        },
+      ],
+    })
+    const fixture = TestBed.createComponent(MedicationsComponent)
+    fixture.detectChanges()
+    return fixture
+  }
+
+  describe('groupByCategory', () => {
+    it('groups medications by category, preserving encounter order', () => {
+      expect(groupByCategory([aspirin, ibuprofen])).toEqual([
+        { category: 'Heart', items: [aspirin] },
+        { category: 'Pain', items: [ibuprofen] },
+      ])
+    })
+  })
+
+  describe('canSave', () => {
+    it('is false with no draft (nothing selected, not adding)', () => {
+      const fixture = setup()
+      expect(fixture.componentInstance.canSave()).toBe(false)
+    })
+
+    it('is false when required fields are blank', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.startAdd()
+      expect(component.canSave()).toBe(false)
+    })
+
+    it('is false when intervalDays is not a positive integer', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.startAdd()
+      if (!component.draft) {
+        throw new Error('expected startAdd() to set a draft')
+      }
+      component.draft.name = 'New Med'
+      component.draft.dose = '5mg'
+      component.draft.category = 'Heart'
+      component.draft.intervalDays = 0
+      expect(component.canSave()).toBe(false)
+    })
+
+    it('is true once required fields are filled in edit mode', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      expect(component.canSave()).toBe(true)
+    })
+
+    it('is false in create mode until the first medications snapshot arrives', () => {
+      // A bare Subject never emits an initial value, so medicationsLoaded()
+      // stays false — unlike the BehaviorSubject the other tests use.
+      const fixture = setup(new Subject<Medication[]>())
+      const component = fixture.componentInstance
+      component.startAdd()
+      if (!component.draft) {
+        throw new Error('expected startAdd() to set a draft')
+      }
+      component.draft.name = 'New Med'
+      component.draft.dose = '5mg'
+      component.draft.category = 'Heart'
+      component.draft.intervalDays = 30
+      expect(component.canSave()).toBe(false)
+    })
+  })
+
+  describe('select / startAdd', () => {
+    it('select() populates the draft from the chosen medication', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('ibuprofen')
+      expect(component.draft).toEqual({
+        name: 'Ibuprofen',
+        dose: '200mg',
+        category: 'Pain',
+        intervalDays: 30,
+      })
+    })
+
+    it('startAdd() clears the selection and blanks the draft', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      component.startAdd()
+      expect(component.selectedId()).toBeNull()
+      expect(component.draft?.name).toBe('')
+    })
+  })
+
+  describe('save', () => {
+    it('calls update() with the edited fields when a medication is selected', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.dose = '162mg'
+
+      await component.save()
+
+      expect(updateSpy).toHaveBeenCalledWith('aspirin', {
+        name: 'Aspirin',
+        dose: '162mg',
+        category: 'Heart',
+        intervalDays: 90,
+      })
+      expect(createSpy).not.toHaveBeenCalled()
+    })
+
+    it('slugifies the name and calls create() for a new medication', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.startAdd()
+      if (!component.draft) {
+        throw new Error('expected startAdd() to set a draft')
+      }
+      component.draft.name = 'Vitamin D3'
+      component.draft.dose = '2000IU'
+      component.draft.category = 'Supplements'
+      component.draft.intervalDays = 60
+
+      await component.save()
+
+      expect(createSpy).toHaveBeenCalledWith('vitamin-d3', {
+        name: 'Vitamin D3',
+        dose: '2000IU',
+        category: 'Supplements',
+        intervalDays: 60,
+      })
+    })
+
+    it('blocks the save and sets an error when the generated id collides', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.startAdd()
+      if (!component.draft) {
+        throw new Error('expected startAdd() to set a draft')
+      }
+      // Slugifies to 'aspirin', which already exists.
+      component.draft.name = 'Aspirin'
+      component.draft.dose = '81mg'
+      component.draft.category = 'Heart'
+      component.draft.intervalDays = 90
+
+      await component.save()
+
+      expect(createSpy).not.toHaveBeenCalled()
+      expect(component.error()).toContain('already exists')
+    })
+
+    it('blocks the save with a distinct message when the name slugifies to nothing', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.startAdd()
+      if (!component.draft) {
+        throw new Error('expected startAdd() to set a draft')
+      }
+      component.draft.name = '***'
+      component.draft.dose = '81mg'
+      component.draft.category = 'Heart'
+      component.draft.intervalDays = 90
+
+      await component.save()
+
+      expect(createSpy).not.toHaveBeenCalled()
+      expect(component.error()).not.toContain('already exists')
+      expect(component.error()).toBeTruthy()
+    })
+  })
+})

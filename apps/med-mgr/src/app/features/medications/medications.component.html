@@ -1,0 +1,93 @@
+<div class="medications">
+  <aside class="sidebar">
+    <button type="button" class="add-button" (click)="startAdd()">
+      + Add medication
+    </button>
+    @for (group of categories(); track group.category) {
+      <section class="category-group">
+        <h3>{{ group.category }}</h3>
+        @for (medication of group.items; track medication.id) {
+          <button
+            type="button"
+            class="med-item"
+            [class.active]="medication.id === selectedId()"
+            (click)="select(medication.id)"
+          >
+            <span class="med-item-name">{{ medication.name }}</span>
+            <span class="med-item-dose">{{ medication.dose }}</span>
+          </button>
+        }
+      </section>
+    }
+  </aside>
+
+  <section class="detail">
+    @if (draft; as draft) {
+      <header class="detail-header">
+        <h2>{{ selectedMedication()?.name ?? 'New Medication' }}</h2>
+      </header>
+
+      @if (error(); as message) {
+        <p class="error">{{ message }}</p>
+      }
+
+      <form class="detail-form" (ngSubmit)="save()">
+        <label>
+          Name <span class="required">*</span>
+          <input type="text" name="name" required [(ngModel)]="draft.name" />
+        </label>
+
+        <label>
+          Dose <span class="required">*</span>
+          <input type="text" name="dose" required [(ngModel)]="draft.dose" />
+        </label>
+
+        <label>
+          Category <span class="required">*</span>
+          <select
+            name="category"
+            [ngModel]="isNewCategory ? NEW_CATEGORY_OPTION : draft.category"
+            (ngModelChange)="onCategorySelect($event)"
+          >
+            <option value="" disabled>Select a category…</option>
+            @for (category of categoryOptions(); track category) {
+              <option [value]="category">{{ category }}</option>
+            }
+            <option [value]="NEW_CATEGORY_OPTION">Add new category…</option>
+          </select>
+        </label>
+
+        @if (isNewCategory) {
+          <label>
+            New category name <span class="required">*</span>
+            <input
+              type="text"
+              name="newCategory"
+              required
+              [(ngModel)]="draft.category"
+            />
+          </label>
+        }
+
+        <label>
+          Reorder interval (days) <span class="required">*</span>
+          <input
+            type="number"
+            name="intervalDays"
+            required
+            min="1"
+            step="1"
+            [(ngModel)]="draft.intervalDays"
+          />
+        </label>
+
+        <button type="submit" [disabled]="!canSave()">Save</button>
+      </form>
+    } @else {
+      <div class="empty-state">
+        <h3>Select a medication</h3>
+        <p>Choose from the list to edit it, or add a new one</p>
+      </div>
+    }
+  </section>
+</div>
