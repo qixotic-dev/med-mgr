@@ -17,12 +17,24 @@ export interface CategoryGroup {
 
 /** Sentinel <option> value for "Add new category…". Real category
  * `<option>`s are given the distinct `CATEGORY_OPTION_PREFIX` below so a
- * category literally named "__new__" can never collide with this. */
-const NEW_CATEGORY_OPTION = '__new__'
+ * category literally named "__new__" can never collide with this. Exported
+ * (rather than only exposed as a protected class field, which the template
+ * can reach but external code like tests can't) for direct unit testing. */
+export const NEW_CATEGORY_OPTION = '__new__'
 
 /** Prefix applied to real category `<option>` values so they can never
  * equal NEW_CATEGORY_OPTION, no matter what a category is named. */
 const CATEGORY_OPTION_PREFIX = 'category:'
+
+/** Maps a category to its `<option value>`. A blank category (the initial
+ * "nothing chosen yet" state — canSave() rejects a blank category, so real
+ * data never has one) maps to `''` itself, matching the disabled placeholder
+ * option's value, rather than `CATEGORY_OPTION_PREFIX + ''`, which would
+ * match no `<option>` and leave the select showing nothing. Exported for
+ * direct unit testing. */
+export function categoryOptionValue(category: string): string {
+  return category === '' ? '' : CATEGORY_OPTION_PREFIX + category
+}
 
 function emptyMedication(): Omit<Medication, 'id'> {
   return { name: '', dose: '', category: '', intervalDays: 0 }
@@ -58,7 +70,7 @@ export class MedicationsComponent {
   private readonly medicationService = inject(MedicationService)
 
   protected readonly NEW_CATEGORY_OPTION = NEW_CATEGORY_OPTION
-  protected readonly CATEGORY_OPTION_PREFIX = CATEGORY_OPTION_PREFIX
+  protected readonly categoryOptionValue = categoryOptionValue
 
   /** `undefined` until all$ has emitted at least once — distinguishes "no
    * medications yet" from "haven't heard from Firestore yet", which matters
@@ -150,7 +162,12 @@ export class MedicationsComponent {
     const id = this.selectedId()
     if (id) {
       await this.medicationService.update(id, { ...draft })
-      this.isNewCategory = false
+      // Only clear isNewCategory if the user is still on this same draft --
+      // otherwise this stale completion would clobber whatever they've since
+      // switched to (another selection, or a fresh add).
+      if (this.draft === draft && this.selectedId() === id) {
+        this.isNewCategory = false
+      }
       return
     }
 
@@ -166,12 +183,16 @@ export class MedicationsComponent {
       return
     }
     await this.medicationService.create(newId, { ...draft })
-    // Select the new id directly rather than calling select(newId): select()
-    // looks up the record in medications(), which depends on the Firestore
-    // snapshot listener catching up to the just-created doc — a race that
-    // could leave nothing selected. draft already holds the just-created data.
-    this.selectedId.set(newId)
-    this.isNewCategory = false
+    // Only select the new id if the user is still on this same draft -- see
+    // the update branch above for why. Selected directly (rather than via
+    // select(newId)) since select() looks up the record in medications(),
+    // which depends on the Firestore snapshot listener catching up to the
+    // just-created doc -- a race that could leave nothing selected. draft
+    // already holds the just-created data.
+    if (this.draft === draft && this.selectedId() === null) {
+      this.selectedId.set(newId)
+      this.isNewCategory = false
+    }
   }
 }
 

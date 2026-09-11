@@ -2,7 +2,12 @@ import { TestBed } from '@angular/core/testing'
 import { BehaviorSubject, Observable, Subject } from 'rxjs'
 import { MedicationService } from '../../services/medication.service'
 import type { Medication } from '../../models/medication.model'
-import { groupByCategory, MedicationsComponent } from './medications.component'
+import {
+  categoryOptionValue,
+  groupByCategory,
+  MedicationsComponent,
+  NEW_CATEGORY_OPTION,
+} from './medications.component'
 
 describe('MedicationsComponent', () => {
   const aspirin: Medication = {
@@ -233,7 +238,7 @@ describe('MedicationsComponent', () => {
       const fixture = setup()
       const component = fixture.componentInstance
       component.select('aspirin')
-      component.onCategorySelect(component.NEW_CATEGORY_OPTION)
+      component.onCategorySelect(NEW_CATEGORY_OPTION)
       if (!component.draft) {
         throw new Error('expected select() to set a draft')
       }
@@ -244,6 +249,67 @@ describe('MedicationsComponent', () => {
 
       expect(component.isNewCategory).toBe(false)
     })
+
+    it('does not clobber a newer draft if an earlier update() is still resolving', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      let resolveUpdate: () => void = () => {
+        throw new Error('update() was not called')
+      }
+      updateSpy.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveUpdate = resolve
+          }),
+      )
+
+      component.select('aspirin')
+      const savePromise = component.save()
+
+      // User switches to a different medication and starts a new category
+      // while the aspirin update is still in flight.
+      component.select('ibuprofen')
+      component.onCategorySelect(NEW_CATEGORY_OPTION)
+
+      resolveUpdate()
+      await savePromise
+
+      expect(component.selectedId()).toBe('ibuprofen')
+      expect(component.isNewCategory).toBe(true)
+    })
+
+    it('does not clobber a newer draft if an earlier create() is still resolving', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      let resolveCreate: () => void = () => {
+        throw new Error('create() was not called')
+      }
+      createSpy.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveCreate = resolve
+          }),
+      )
+
+      component.startAdd()
+      if (!component.draft) {
+        throw new Error('expected startAdd() to set a draft')
+      }
+      component.draft.name = 'Vitamin D3'
+      component.draft.dose = '2000IU'
+      component.draft.category = 'Supplements'
+      component.draft.intervalDays = 60
+      const savePromise = component.save()
+
+      // User switches to an existing medication while the create() for the
+      // new one is still in flight.
+      component.select('aspirin')
+
+      resolveCreate()
+      await savePromise
+
+      expect(component.selectedId()).toBe('aspirin')
+    })
   })
 
   describe('onCategorySelect', () => {
@@ -252,7 +318,7 @@ describe('MedicationsComponent', () => {
       const component = fixture.componentInstance
       component.startAdd()
 
-      component.onCategorySelect(component.CATEGORY_OPTION_PREFIX + '__new__')
+      component.onCategorySelect(categoryOptionValue('__new__'))
 
       expect(component.isNewCategory).toBe(false)
       expect(component.draft?.category).toBe('__new__')
@@ -263,10 +329,21 @@ describe('MedicationsComponent', () => {
       const component = fixture.componentInstance
       component.startAdd()
 
-      component.onCategorySelect(component.NEW_CATEGORY_OPTION)
+      component.onCategorySelect(NEW_CATEGORY_OPTION)
 
       expect(component.isNewCategory).toBe(true)
       expect(component.draft?.category).toBe('')
+    })
+  })
+
+  describe('categoryOptionValue', () => {
+    it("maps a blank category to the disabled placeholder's own value, not a prefixed empty string", () => {
+      expect(categoryOptionValue('')).toBe('')
+    })
+
+    it('prefixes a real category so it can never equal NEW_CATEGORY_OPTION', () => {
+      expect(categoryOptionValue('Heart')).not.toBe(NEW_CATEGORY_OPTION)
+      expect(categoryOptionValue('__new__')).not.toBe(NEW_CATEGORY_OPTION)
     })
   })
 })
