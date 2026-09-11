@@ -1,6 +1,6 @@
 {
   "projects": {
     "default": "demo-rx-order-manager",
-    "prod": "REPLACE_WITH_FIREBASE_PROJECT_ID"
+    "prod": "med-mgr-qixotic"
   }
 }
