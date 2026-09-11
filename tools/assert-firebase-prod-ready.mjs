@@ -13,12 +13,12 @@ if (!prodProjectId || prodProjectId === PLACEHOLDER) {
 }
 
 const productionEnv = await readFile(
-  'apps/rx-order-manager/src/environments/environment.prod.ts',
+  'apps/med-mgr/src/environments/environment.prod.ts',
   'utf8',
 )
 if (productionEnv.includes(TODO)) {
   issues.push(
-    'Set the Firebase web app values in apps/rx-order-manager/src/environments/environment.prod.ts before production deploys.',
+    'Set the Firebase web app values in apps/med-mgr/src/environments/environment.prod.ts before production deploys.',
   )
 }
 

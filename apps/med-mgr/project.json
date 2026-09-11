@@ -1,9 +1,9 @@
 {
-  "name": "rx-order-manager",
+  "name": "med-mgr",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "prefix": "app",
-  "sourceRoot": "apps/rx-order-manager/src",
+  "sourceRoot": "apps/med-mgr/src",
   "tags": [],
   "targets": {
     "build": {
@@ -11,17 +11,17 @@
       "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "options": {
-        "outputPath": "dist/apps/rx-order-manager",
-        "browser": "apps/rx-order-manager/src/main.ts",
-        "tsConfig": "apps/rx-order-manager/tsconfig.app.json",
+        "outputPath": "dist/apps/med-mgr",
+        "browser": "apps/med-mgr/src/main.ts",
+        "tsConfig": "apps/med-mgr/tsconfig.app.json",
         "inlineStyleLanguage": "scss",
         "assets": [
           {
             "glob": "**/*",
-            "input": "apps/rx-order-manager/public"
+            "input": "apps/med-mgr/public"
           }
         ],
-        "styles": ["apps/rx-order-manager/src/styles.scss"]
+        "styles": ["apps/med-mgr/src/styles.scss"]
       },
       "configurations": {
         "production": {
@@ -40,8 +40,8 @@
           "outputHashing": "all",
           "fileReplacements": [
             {
-              "replace": "apps/rx-order-manager/src/environments/environment.ts",
-              "with": "apps/rx-order-manager/src/environments/environment.prod.ts"
+              "replace": "apps/med-mgr/src/environments/environment.ts",
+              "with": "apps/med-mgr/src/environments/environment.prod.ts"
             }
           ]
         },
@@ -58,17 +58,17 @@
       "defaultConfiguration": "development",
       "configurations": {
         "production": {
-          "buildTarget": "rx-order-manager:build:production"
+          "buildTarget": "med-mgr:build:production"
         },
         "development": {
-          "buildTarget": "rx-order-manager:build:development"
+          "buildTarget": "med-mgr:build:development"
         }
       }
     },
     "extract-i18n": {
       "executor": "@angular/build:extract-i18n",
       "options": {
-        "buildTarget": "rx-order-manager:build"
+        "buildTarget": "med-mgr:build"
       }
     },
     "lint": {
@@ -78,17 +78,17 @@
       "executor": "@nx/jest:jest",
       "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
       "options": {
-        "jestConfig": "apps/rx-order-manager/jest.config.cts",
-        "tsConfig": "apps/rx-order-manager/tsconfig.spec.json"
+        "jestConfig": "apps/med-mgr/jest.config.cts",
+        "tsConfig": "apps/med-mgr/tsconfig.spec.json"
       }
     },
     "serve-static": {
       "continuous": true,
       "executor": "@nx/web:file-server",
       "options": {
-        "buildTarget": "rx-order-manager:build",
+        "buildTarget": "med-mgr:build",
         "port": 4200,
-        "staticFilePath": "dist/apps/rx-order-manager/browser",
+        "staticFilePath": "dist/apps/med-mgr/browser",
         "spa": true
       }
     },

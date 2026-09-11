@@ -6,7 +6,7 @@
 // loads the Angular app, and the router takes over from there.
 import { copyFile } from 'node:fs/promises'
 
-const DIST_DIR = 'dist/apps/rx-order-manager/browser'
+const DIST_DIR = 'dist/apps/med-mgr/browser'
 
 await copyFile(`${DIST_DIR}/index.html`, `${DIST_DIR}/404.html`)
 console.log(`Copied ${DIST_DIR}/index.html -> ${DIST_DIR}/404.html`)

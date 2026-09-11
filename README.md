@@ -1,4 +1,4 @@
-# rx-order-manager
+# med-mgr
 
 Personal prescription reorder tracker: pharmacy/prescriber logistics and
 reorder scheduling for a fixed list of medications, with Google Calendar
@@ -13,9 +13,9 @@ architectural decisions taken so far.
 ```bash
 pnpm install
 pnpm run dev                    # Firebase emulators + dev server together (requires Java)
-npx nx serve rx-order-manager   # local dev server only
-npx nx test rx-order-manager    # unit tests (Jest)
-npx nx e2e rx-order-manager-e2e # e2e tests (Playwright)
+npx nx serve med-mgr   # local dev server only
+npx nx test med-mgr    # unit tests (Jest)
+npx nx e2e med-mgr-e2e # e2e tests (Playwright)
 ```
 
 ## Data
@@ -41,5 +41,5 @@ pnpm run deploy:firebase     # publish firestore.rules and firestore.indexes.jso
 run whenever the rules or indexes change — the app's queries need the indexes.
 Both deploy commands now fail fast until `.firebaserc` points `projects.prod` to
 the real Firebase project ID and
-`apps/rx-order-manager/src/environments/environment.prod.ts` no longer has
+`apps/med-mgr/src/environments/environment.prod.ts` no longer has
 `'TODO'` Firebase values.
