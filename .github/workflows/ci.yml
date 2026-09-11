@@ -30,6 +30,8 @@ jobs:
 
       - run: pnpm exec nx lint rx-order-manager
 
+      - run: pnpm exec prettier --check .
+
       - run: pnpm exec nx test rx-order-manager
 
       - run: pnpm exec nx build rx-order-manager
