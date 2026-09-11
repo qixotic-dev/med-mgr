@@ -15,9 +15,14 @@ export interface CategoryGroup {
   items: Medication[]
 }
 
-/** Sentinel <option> value for "Add new category…" — never a real category,
- * since real categories come from existing Medication.category values. */
+/** Sentinel <option> value for "Add new category…". Real category
+ * `<option>`s are given the distinct `CATEGORY_OPTION_PREFIX` below so a
+ * category literally named "__new__" can never collide with this. */
 const NEW_CATEGORY_OPTION = '__new__'
+
+/** Prefix applied to real category `<option>` values so they can never
+ * equal NEW_CATEGORY_OPTION, no matter what a category is named. */
+const CATEGORY_OPTION_PREFIX = 'category:'
 
 function emptyMedication(): Omit<Medication, 'id'> {
   return { name: '', dose: '', category: '', intervalDays: 0 }
@@ -53,6 +58,7 @@ export class MedicationsComponent {
   private readonly medicationService = inject(MedicationService)
 
   protected readonly NEW_CATEGORY_OPTION = NEW_CATEGORY_OPTION
+  protected readonly CATEGORY_OPTION_PREFIX = CATEGORY_OPTION_PREFIX
 
   /** `undefined` until all$ has emitted at least once — distinguishes "no
    * medications yet" from "haven't heard from Firestore yet", which matters
@@ -112,7 +118,9 @@ export class MedicationsComponent {
       return
     }
     this.isNewCategory = value === NEW_CATEGORY_OPTION
-    this.draft.category = this.isNewCategory ? '' : value
+    this.draft.category = this.isNewCategory
+      ? ''
+      : value.slice(CATEGORY_OPTION_PREFIX.length)
   }
 
   canSave(): boolean {
@@ -142,6 +150,7 @@ export class MedicationsComponent {
     const id = this.selectedId()
     if (id) {
       await this.medicationService.update(id, { ...draft })
+      this.isNewCategory = false
       return
     }
 
@@ -157,10 +166,12 @@ export class MedicationsComponent {
       return
     }
     await this.medicationService.create(newId, { ...draft })
-    // Best-effort: relies on the just-created doc already being in the
-    // local Firestore cache (and thus in medications()) by the time
-    // create() resolves, same as PrescriptionsComponent's optimistic reads.
-    this.select(newId)
+    // Select the new id directly rather than calling select(newId): select()
+    // looks up the record in medications(), which depends on the Firestore
+    // snapshot listener catching up to the just-created doc — a race that
+    // could leave nothing selected. draft already holds the just-created data.
+    this.selectedId.set(newId)
+    this.isNewCategory = false
   }
 }
 

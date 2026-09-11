@@ -208,5 +208,65 @@ describe('MedicationsComponent', () => {
       expect(component.error()).not.toContain('already exists')
       expect(component.error()).toBeTruthy()
     })
+
+    it('selects the newly created medication even if the collection snapshot has not caught up yet', async () => {
+      // The BehaviorSubject never re-emits after create() (createSpy doesn't
+      // write back to it), so medications() still won't contain the new id
+      // once save() resolves -- selecting it must not depend on that.
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.startAdd()
+      if (!component.draft) {
+        throw new Error('expected startAdd() to set a draft')
+      }
+      component.draft.name = 'Vitamin D3'
+      component.draft.dose = '2000IU'
+      component.draft.category = 'Supplements'
+      component.draft.intervalDays = 60
+
+      await component.save()
+
+      expect(component.selectedId()).toBe('vitamin-d3')
+    })
+
+    it('clears isNewCategory after a successful update into a newly typed category', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      component.onCategorySelect(component.NEW_CATEGORY_OPTION)
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.category = 'Cardiac'
+      expect(component.isNewCategory).toBe(true)
+
+      await component.save()
+
+      expect(component.isNewCategory).toBe(false)
+    })
+  })
+
+  describe('onCategorySelect', () => {
+    it('treats a real category literally named "__new__" as a normal category, not the sentinel', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.startAdd()
+
+      component.onCategorySelect(component.CATEGORY_OPTION_PREFIX + '__new__')
+
+      expect(component.isNewCategory).toBe(false)
+      expect(component.draft?.category).toBe('__new__')
+    })
+
+    it('still recognizes the "Add new category…" sentinel', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.startAdd()
+
+      component.onCategorySelect(component.NEW_CATEGORY_OPTION)
+
+      expect(component.isNewCategory).toBe(true)
+      expect(component.draft?.category).toBe('')
+    })
   })
 })

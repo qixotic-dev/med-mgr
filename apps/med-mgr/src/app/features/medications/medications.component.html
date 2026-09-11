@@ -46,12 +46,18 @@
           Category <span class="required">*</span>
           <select
             name="category"
-            [ngModel]="isNewCategory ? NEW_CATEGORY_OPTION : draft.category"
+            [ngModel]="
+              isNewCategory
+                ? NEW_CATEGORY_OPTION
+                : CATEGORY_OPTION_PREFIX + draft.category
+            "
             (ngModelChange)="onCategorySelect($event)"
           >
             <option value="" disabled>Select a category…</option>
             @for (category of categoryOptions(); track category) {
-              <option [value]="category">{{ category }}</option>
+              <option [value]="CATEGORY_OPTION_PREFIX + category">
+                {{ category }}
+              </option>
             }
             <option [value]="NEW_CATEGORY_OPTION">Add new category…</option>
           </select>
