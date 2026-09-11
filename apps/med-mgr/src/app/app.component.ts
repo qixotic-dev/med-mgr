@@ -1,6 +1,16 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core'
+import {
+  Component,
+  ChangeDetectionStrategy,
+  computed,
+  inject,
+} from '@angular/core'
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop'
-import { Router, RouterOutlet } from '@angular/router'
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterOutlet,
+} from '@angular/router'
 import { filter, map } from 'rxjs'
 import { AuthService } from './core/auth.service'
 import { ThemeService } from './core/theme.service'
@@ -8,7 +18,7 @@ import { ThemeService } from './core/theme.service'
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, RouterLink],
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './app.component.scss',
@@ -23,6 +33,34 @@ export class AppComponent {
     this.auth.session$.pipe(map((session) => session.status === 'authorized')),
     { initialValue: false },
   )
+
+  private readonly currentUrl = toSignal(
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      map((event) => event.urlAfterRedirects),
+    ),
+    { initialValue: this.router.url },
+  )
+
+  /** Tab bar entries — mirrors day-mgr's app.component navTabs. Prescriptions
+   * uses !startsWith('/medications') rather than a bare `=== '/'` so exactly
+   * one tab is active even before the first NavigationEnd resolves (e.g. a
+   * hard refresh on /medications). */
+  protected readonly navTabs = computed(() => {
+    const url = this.currentUrl()
+    return [
+      {
+        route: '/',
+        label: 'Prescriptions',
+        active: !url.startsWith('/medications'),
+      },
+      {
+        route: '/medications',
+        label: 'Medications',
+        active: url.startsWith('/medications'),
+      },
+    ]
+  })
 
   constructor() {
     // authGuard only runs on navigation attempts, so a session that goes
