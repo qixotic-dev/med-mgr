@@ -27,3 +27,7 @@ pnpm run deploy:firebase     # publish firestore.rules and firestore.indexes.jso
 
 `deploy:firebase` targets the `prod` project alias in `.firebaserc` and must be
 run whenever the rules or indexes change — the app's queries need the indexes.
+Both deploy commands now fail fast until `.firebaserc` points `projects.prod` to
+the real Firebase project ID and
+`apps/rx-order-manager/src/environments/environment.prod.ts` no longer has
+`'TODO'` Firebase values.

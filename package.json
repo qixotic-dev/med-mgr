@@ -9,9 +9,9 @@
     "test": "nx test rx-order-manager",
     "e2e": "nx e2e rx-order-manager-e2e",
     "emulators": "firebase emulators:start",
-    "predeploy:gh-pages": "nx build rx-order-manager --configuration=production --base-href=/med-mgr/ && node tools/spa-404-fallback.mjs",
+    "predeploy:gh-pages": "node tools/assert-firebase-prod-ready.mjs && nx build rx-order-manager --configuration=production --base-href=/med-mgr/ && node tools/spa-404-fallback.mjs",
     "deploy:gh-pages": "pnpm run predeploy:gh-pages && npx angular-cli-ghpages --dir=dist/apps/rx-order-manager/browser",
-    "deploy:firebase": "firebase deploy --only firestore:rules,firestore:indexes --project prod"
+    "deploy:firebase": "node tools/assert-firebase-prod-ready.mjs && firebase deploy --only firestore:rules,firestore:indexes --project prod"
   },
   "private": true,
   "dependencies": {
