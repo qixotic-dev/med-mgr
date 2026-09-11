@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core'
 import type { Medication } from '../models/medication.model'
 import type { DateKey } from '../util/date-key'
+import { addDays } from '../util/date-key'
 import { AuthService } from './auth.service'
 
 const CALENDAR_EVENTS_URL =
@@ -74,7 +75,7 @@ export function buildEvent(
     summary: `Rx: Order ${medication.name} (${medication.dose})`,
     description: `Reminder to order ${medication.name} ${medication.dose}.\n\n${howToOrder}`,
     start: { date: nextOrderDate },
-    end: { date: nextOrderDate },
+    end: { date: addDays(nextOrderDate, 1) },
     reminders: {
       useDefault: false,
       overrides: [{ method: 'email', minutes: REMINDER_MINUTES_BEFORE }],
