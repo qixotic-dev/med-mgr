@@ -13,6 +13,9 @@
             [class.active]="medication.id === selectedId()"
             (click)="select(medication.id)"
           >
+            <!-- TODO: selection is conveyed only by the `active` class --
+                 expose it via an ARIA selection/pressed attribute for
+                 screen-reader users too. -->
             <span class="med-item-name">{{ medication.name }}</span>
             <span class="med-item-dose">{{ medication.dose }}</span>
           </button>

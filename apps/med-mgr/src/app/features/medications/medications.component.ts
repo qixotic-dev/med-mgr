@@ -161,10 +161,18 @@ export class MedicationsComponent {
 
     const id = this.selectedId()
     if (id) {
+      // TODO: if update() rejects (transient network/Firestore error), this
+      // returns without setting `error`, so the form gives no feedback.
+      // Catch the failure and surface a retryable message.
       await this.medicationService.update(id, { ...draft })
       // Only clear isNewCategory if the user is still on this same draft --
       // otherwise this stale completion would clobber whatever they've since
       // switched to (another selection, or a fresh add).
+      // TODO: `draft` is mutated in place by [(ngModel)], so this identity
+      // check doesn't catch the user continuing to edit this same draft
+      // while the update is in flight -- only a switch to a different
+      // draft. Capture a submitted snapshot/revision instead of relying on
+      // object identity to also cover that case.
       if (this.draft === draft && this.selectedId() === id) {
         this.isNewCategory = false
       }
@@ -176,12 +184,18 @@ export class MedicationsComponent {
       this.error.set('Name must contain at least one letter or number.')
       return
     }
+    // TODO: this client-side check isn't an atomic uniqueness guarantee --
+    // two concurrent creates with the same slugified name can both pass it,
+    // and MedicationService.create() (setDoc) silently overwrites. Make the
+    // write create-only/transactional, or otherwise reject an existing id.
     if (this.medications().some((m) => m.id === newId)) {
       this.error.set(
         'A medication with this name already exists — edit it instead.',
       )
       return
     }
+    // TODO: if create() rejects (transient network/Firestore error), this
+    // returns without setting `error` -- same gap as the update path above.
     await this.medicationService.create(newId, { ...draft })
     // Only select the new id if the user is still on this same draft -- see
     // the update branch above for why. Selected directly (rather than via
@@ -189,6 +203,8 @@ export class MedicationsComponent {
     // which depends on the Firestore snapshot listener catching up to the
     // just-created doc -- a race that could leave nothing selected. draft
     // already holds the just-created data.
+    // TODO: same draft-identity gap as the update branch above -- editing
+    // this same draft further while create() is in flight isn't caught.
     if (this.draft === draft && this.selectedId() === null) {
       this.selectedId.set(newId)
       this.isNewCategory = false
