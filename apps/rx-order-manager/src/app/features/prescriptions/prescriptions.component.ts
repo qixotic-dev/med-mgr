@@ -1,7 +1,9 @@
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -54,6 +56,7 @@ export class PrescriptionsComponent {
   private readonly medicationService = inject(MedicationService);
   private readonly prescriptionService = inject(PrescriptionService);
   private readonly calendarService = inject(CalendarService);
+  private readonly changeDetectorRef = inject(ChangeDetectorRef);
 
   private readonly medications = toSignal(this.medicationService.all$, {
     initialValue: [],
@@ -87,12 +90,52 @@ export class PrescriptionsComponent {
    */
   draft: Prescription | null = null;
 
+  /** What `draft` was last set to by `select()` or the reconcile effect
+   * below — compared against `draft` to tell an untouched snapshot from an
+   * in-progress edit. */
+  private draftBaseline: Prescription | null = null;
+
+  constructor() {
+    // `select()` can run before `prescriptions()` has received its first
+    // Firestore snapshot (still at its `[]` initialValue), producing an
+    // empty draft for a medication that actually has saved data. Once real
+    // data arrives, adopt it here — but only while the draft still matches
+    // its baseline, so an in-progress edit (including a picked-but-unsaved
+    // date, see pickNextOrderDate()) is never clobbered.
+    effect(() => {
+      const medicationId = this.selectedId();
+      const prescriptions = this.prescriptions();
+      if (
+        !medicationId ||
+        !this.draft ||
+        !this.draftBaseline ||
+        !isSamePrescriptionData(this.draft, this.draftBaseline)
+      ) {
+        return;
+      }
+      const existing = prescriptions.find(
+        (p) => p.medicationId === medicationId,
+      );
+      if (existing && !isSamePrescriptionData(existing, this.draft)) {
+        this.draft = { ...existing };
+        this.draftBaseline = this.draft;
+        // `draft` is a plain field, not a signal (see its doc comment), so
+        // unlike select()/pickNextOrderDate() -- both called from template
+        // event bindings, which Angular already schedules a render after --
+        // this reactive-graph-driven write needs an explicit nudge to reach
+        // the view.
+        this.changeDetectorRef.markForCheck();
+      }
+    });
+  }
+
   select(medicationId: string): void {
     this.selectedId.set(medicationId);
     const existing = this.prescriptions().find(
       (p) => p.medicationId === medicationId,
     );
     this.draft = existing ? { ...existing } : emptyPrescription(medicationId);
+    this.draftBaseline = this.draft;
   }
 
   canSave(): boolean {
@@ -123,6 +166,7 @@ export class PrescriptionsComponent {
       nextOrderDate: draft.nextOrderDate,
       scheduleNotes: draft.scheduleNotes,
     });
+    this.draftBaseline = draft;
   }
 
   /** Picking a date both updates the draft and, matching the old app,
@@ -139,6 +183,27 @@ export class PrescriptionsComponent {
       this.draft.howToOrder,
     );
   }
+}
+
+/** Compares the user-editable fields only — ignores `medicationId` and the
+ * server-set `updatedAt`, so a freshly-fetched Prescription can be compared
+ * against a draft the user hasn't touched yet. Exported for direct unit
+ * testing. */
+export function isSamePrescriptionData(
+  a: Prescription,
+  b: Prescription,
+): boolean {
+  return (
+    a.pharmacyName === b.pharmacyName &&
+    a.pharmacyPhone === b.pharmacyPhone &&
+    a.pharmacyAddress === b.pharmacyAddress &&
+    a.prescriberName === b.prescriberName &&
+    a.prescriberPhone === b.prescriberPhone &&
+    a.howToOrder === b.howToOrder &&
+    a.lastOrderDate === b.lastOrderDate &&
+    a.nextOrderDate === b.nextOrderDate &&
+    a.scheduleNotes === b.scheduleNotes
+  );
 }
 
 /**
