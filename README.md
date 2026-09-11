@@ -18,6 +18,17 @@ npx nx test rx-order-manager    # unit tests (Jest)
 npx nx e2e rx-order-manager-e2e # e2e tests (Playwright)
 ```
 
+## Data
+
+`MedicationService` is read-only, so a fresh emulator instance or a new
+production project starts with an empty `medications` collection -- the
+sidebar stays empty until the fixed medication list is seeded once:
+
+```bash
+node tools/migrate-to-firestore.mjs                                    # against pnpm run dev's emulator, or the real project (see the script's header comment for credentials)
+node tools/migrate-to-firestore.mjs --drive-json <path-to-old-export>   # also seeds prescriptions from the old Electron app's Drive export
+```
+
 ## Deployment
 
 ```bash
