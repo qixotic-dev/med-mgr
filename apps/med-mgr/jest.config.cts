@@ -1,5 +1,5 @@
 module.exports = {
-  displayName: 'rx-order-manager',
+  displayName: 'med-mgr',
   preset: '../../jest.preset.js',
   // Prefer packages' "browser" export condition for ESM resolution, matching
   // where this app actually runs. Note this has no effect on CommonJS
@@ -11,7 +11,7 @@ module.exports = {
     customExportConditions: ['browser'],
   },
   setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
-  coverageDirectory: '../../coverage/apps/rx-order-manager',
+  coverageDirectory: '../../coverage/apps/med-mgr',
   transform: {
     '^.+\\.(ts|mjs|js|html)$': [
       'jest-preset-angular',

@@ -1,4 +1,4 @@
-# rx-order-manager
+# med-mgr
 
 Personal prescription reorder tracker: pharmacy/prescriber logistics and
 reorder scheduling for a fixed list of medications, with Google Calendar

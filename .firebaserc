@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "demo-rx-order-manager",
+    "default": "demo-med-mgr",
     "prod": "med-mgr-qixotic"
   }
 }

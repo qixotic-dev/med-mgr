@@ -36,7 +36,7 @@ export default defineConfig({
     {
       command: 'npx firebase-tools emulators:start --only auth,firestore',
       url: 'http://127.0.0.1:9099',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: !process.env['CI'],
       cwd: workspaceRoot,
       timeout: 60_000,
     },
@@ -51,9 +51,9 @@ export default defineConfig({
       // Any extra argument on the command line defeats that pattern match,
       // leaving Playwright in sole charge of both servers' lifecycle, as
       // intended.
-      command: 'npx nx run rx-order-manager:serve --port=4200',
+      command: 'npx nx run med-mgr:serve --port=4200',
       url: 'http://localhost:4200',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: !process.env['CI'],
       cwd: workspaceRoot,
     },
   ],

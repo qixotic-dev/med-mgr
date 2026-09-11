@@ -7,9 +7,9 @@ export const environment = {
   ownerEmail: 'qixoticsoftware@gmail.com',
   firebase: {
     apiKey: 'demo-api-key',
-    authDomain: 'demo-rx-order-manager.firebaseapp.com',
-    projectId: 'demo-rx-order-manager',
-    storageBucket: 'demo-rx-order-manager.appspot.com',
+    authDomain: 'demo-med-mgr.firebaseapp.com',
+    projectId: 'demo-med-mgr',
+    storageBucket: 'demo-med-mgr.appspot.com',
     messagingSenderId: '0',
     appId: '1:0:web:0',
   },
