@@ -178,4 +178,38 @@ describe('regenerateInteractionReport', () => {
       }),
     )
   })
+
+  it('does not rewrite the report when another invocation already advanced it', async () => {
+    reportGetMock
+      .mockResolvedValueOnce({ data: () => undefined })
+      .mockResolvedValueOnce({
+        data: () => ({
+          inputFingerprint:
+            '{"medications":[{"id":"ibuprofen","name":"Ibuprofen","dose":"200mg"}],"patient":null}',
+        }),
+      })
+    medicationsGetMock
+      .mockResolvedValueOnce({
+        docs: [medicationDoc('aspirin', 'Aspirin', '81mg')],
+      })
+      .mockResolvedValueOnce({
+        docs: [medicationDoc('ibuprofen', 'Ibuprofen', '200mg')],
+      })
+    patientGetMock.mockResolvedValue({ exists: false, updateTime: undefined })
+    ;(requestFindings as jest.Mock).mockResolvedValue([
+      {
+        type: 'caveat',
+        severity: 'minor',
+        medicationIds: ['aspirin'],
+        detail: 'take with food',
+      },
+    ])
+
+    await regenerateInteractionReport('test-key', 'claude-sonnet-4-5')
+
+    expect(setMock).toHaveBeenCalledTimes(1)
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'pending', generatedFor: ['aspirin'] }),
+    )
+  })
 })

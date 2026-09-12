@@ -16,6 +16,7 @@ const COMMON_FUNCTION_OPTIONS = {
   // A high-effort Claude call can exceed the v2 default of 60s.
   timeoutSeconds: 300,
   memory: '512MiB' as const,
+  params: [anthropicModel],
   secrets: [anthropicApiKey],
 }
 
