@@ -185,24 +185,24 @@ describe('regenerateMedicationInfo', () => {
       exists: true,
       get: (field: string) =>
         (
-          {
+          ({
             commonName: 'Aspirin',
             clinicalName: 'Acetylsalicylic acid',
             dose: '81mg',
             infoStatus: 'pending',
-          } as Record<string, string>
+          }) as Record<string, string>
         )[field],
     })
     transactionGetMock.mockResolvedValue({
       exists: true,
       get: (field: string) =>
         (
-          {
+          ({
             commonName: 'Aspirin',
             clinicalName: 'Acetylsalicylic acid',
             dose: '325mg',
             infoStatus: 'pending',
-          } as Record<string, string>
+          }) as Record<string, string>
         )[field],
     })
     parseMock.mockResolvedValue({

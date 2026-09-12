@@ -60,10 +60,7 @@ function readMedicationGenerationState(
     clinicalName: snapshot.get('clinicalName') as string | undefined,
     dose: snapshot.get('dose') as string,
     infoStatus: snapshot.get('infoStatus') as
-      | 'pending'
-      | 'ready'
-      | 'error'
-      | undefined,
+      'pending' | 'ready' | 'error' | undefined,
   }
 }
 

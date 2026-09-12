@@ -126,11 +126,11 @@ describe('regenerateInteractionReport', () => {
           id: 'aspirin',
           get: (field: string) =>
             (
-              {
+              ({
                 commonName: 'Aspirin',
                 clinicalName: 'Acetylsalicylic acid',
                 dose: '81mg',
-              } as Record<string, string>
+              }) as Record<string, string>
             )[field],
         },
       ],

@@ -310,7 +310,9 @@ export class MedicationsComponent {
       }
       const nextBaseline = { ...draft }
       const submitted =
-        draft.infoStatus === 'pending' ? medicationCoreFields(draft) : nextBaseline
+        draft.infoStatus === 'pending'
+          ? medicationCoreFields(draft)
+          : nextBaseline
       // TODO: if update() rejects (transient network/Firestore error), this
       // returns without setting `error`, so the form gives no feedback.
       // Catch the failure and surface a retryable message.
