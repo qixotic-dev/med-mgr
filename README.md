@@ -1,11 +1,13 @@
 # med-mgr
 
-Personal prescription reorder tracker: pharmacy/prescriber logistics and
+Personal medication tracker: pharmacy/prescriber reorder logistics and
 reorder scheduling for a fixed list of medications, with Google Calendar
-reminders. Single-user, Google Sign-In gated, Angular + Firebase (Auth +
-Firestore), no custom backend.
+reminders, plus an AI-generated Interaction Report flagging possible drug
+interactions and caveats. Single-user, Google Sign-In gated, Angular +
+Firebase (Auth + Firestore) for the app itself, with one Cloud Function
+calling an LLM to generate the Interaction Report.
 
-See [`CONTEXT.md`](./CONTEXT.md) for the domain glossary and the
+See [`CONTEXT.md`](CONTEXT.md) for the domain glossary and the
 architectural decisions taken so far.
 
 ## Development
@@ -43,3 +45,24 @@ Both deploy commands now fail fast until `.firebaserc` points `projects.prod` to
 the real Firebase project ID and
 `apps/med-mgr/src/environments/environment.prod.ts` no longer has
 `'TODO'` Firebase values.
+
+### Interaction Report Cloud Function (`functions/`)
+
+One-time setup against the `prod` project (see
+`docs/adr/0002-cloud-functions-for-llm-key.md` for why this exists):
+
+```bash
+# 1. Upgrade the Firebase project to the pay-as-you-go Blaze plan in the
+#    Firebase console — required for a Cloud Function to make outbound
+#    network calls (the free Spark plan can't call the Claude API).
+# 2. Provision the API key as a Secret Manager secret (prompts for the value):
+firebase functions:secrets:set ANTHROPIC_API_KEY --project prod
+```
+
+Deploying the function is manual for now, separate from the GitHub Actions
+workflow that deploys the Angular app on merge to main:
+
+```bash
+cd functions && npm install && npm run build && cd ..
+firebase deploy --only functions --project prod
+```

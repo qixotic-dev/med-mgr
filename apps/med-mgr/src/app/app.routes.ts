@@ -1,5 +1,6 @@
 import { Route } from '@angular/router'
 import { authGuard } from './core/auth.guard'
+import { InteractionsComponent } from './features/interactions/interactions.component'
 import { LoginComponent } from './features/login/login.component'
 import { MedicationsComponent } from './features/medications/medications.component'
 import { PrescriptionsComponent } from './features/prescriptions/prescriptions.component'
@@ -10,6 +11,11 @@ export const appRoutes: Route[] = [
   {
     path: 'medications',
     component: MedicationsComponent,
+    canActivate: [authGuard],
+  },
+  {
+    path: 'interactions',
+    component: InteractionsComponent,
     canActivate: [authGuard],
   },
   { path: '**', redirectTo: '' },

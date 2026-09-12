@@ -1,0 +1,34 @@
+/* Same pill shape as status-badge.component.scss; colors keyed by Severity
+   instead of reorder status. */
+.status-badge {
+  display: inline-block;
+  box-sizing: border-box;
+  white-space: nowrap;
+  text-align: center;
+  padding: 3px 10px;
+  border: 1px solid var(--badge-border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.14px;
+
+  &.minor {
+    border-color: transparent;
+    background: var(--success);
+    color: var(--success-tint);
+  }
+
+  &.moderate {
+    border-color: transparent;
+    background: var(--warning);
+    color: var(--warning-tint);
+  }
+
+  &.major {
+    border-color: transparent;
+    background: var(--danger);
+    color: var(--danger-tint);
+  }
+}

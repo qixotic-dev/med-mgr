@@ -74,6 +74,5 @@
     "@nx/angular:resolver": { "typeSeparator": "." },
     "@schematics/angular:resolver": { "typeSeparator": "." }
   },
-  "analytics": false,
-  "nxCloudId": "6aa429a889bf057a55373d3f"
+  "analytics": false
 }

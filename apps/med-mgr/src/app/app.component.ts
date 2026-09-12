@@ -43,21 +43,29 @@ export class AppComponent {
   )
 
   /** Tab bar entries — mirrors day-mgr's app.component navTabs. Prescriptions
-   * uses !startsWith('/medications') rather than a bare `=== '/'` so exactly
-   * one tab is active even before the first NavigationEnd resolves (e.g. a
-   * hard refresh on /medications). */
+   * is active whenever the URL matches none of the other tabs, rather than a
+   * bare `=== '/'`, so exactly one tab is active even before the first
+   * NavigationEnd resolves (e.g. a hard refresh on /medications) — it's the
+   * fallback/home tab. */
   protected readonly navTabs = computed(() => {
     const url = this.currentUrl()
+    const onMedications = url.startsWith('/medications')
+    const onInteractions = url.startsWith('/interactions')
     return [
       {
         route: '/',
         label: 'Prescriptions',
-        active: !url.startsWith('/medications'),
+        active: !onMedications && !onInteractions,
       },
       {
         route: '/medications',
         label: 'Medications',
-        active: url.startsWith('/medications'),
+        active: onMedications,
+      },
+      {
+        route: '/interactions',
+        label: 'Interactions',
+        active: onInteractions,
       },
     ]
   })

@@ -60,6 +60,10 @@ ui-debug.log
 .firebase-emulator-data/
 .firebase/
 
+# Cloud Functions build output and local secret overrides
+functions/lib/
+functions/.secret.local
+
 .claude/worktrees
 .claude/settings.local.json
 .nx/polygraph
