@@ -7,7 +7,8 @@ jest.mock('./claude')
 
 describe('regenerateInteractionReport', () => {
   const setMock = jest.fn().mockResolvedValue(undefined)
-  const reportRef = { set: setMock }
+  const reportGetMock = jest.fn()
+  const reportRef = { get: reportGetMock, set: setMock }
   const medicationsGetMock = jest.fn()
   const patientGetMock = jest.fn()
 
@@ -23,6 +24,8 @@ describe('regenerateInteractionReport', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     setMock.mockResolvedValue(undefined)
+    reportGetMock.mockResolvedValue({ data: () => undefined })
+    patientGetMock.mockResolvedValue({ exists: false, updateTime: undefined })
     ;(getFirestore as jest.Mock).mockReturnValue(dbMock)
   })
 
@@ -41,8 +44,11 @@ describe('regenerateInteractionReport', () => {
 
     expect(setMock).toHaveBeenNthCalledWith(
       1,
-      { status: 'pending' },
-      { merge: true },
+      expect.objectContaining({
+        status: 'pending',
+        findings: [],
+        generatedFor: [],
+      }),
     )
     expect(setMock).toHaveBeenNthCalledWith(
       2,
@@ -52,12 +58,11 @@ describe('regenerateInteractionReport', () => {
         generatedFor: [],
         patientProfileUpdatedAt: null,
       }),
-      { merge: true },
     )
     expect(requestFindings).not.toHaveBeenCalled()
   })
 
-  it('writes a ready report with sorted generatedFor on success', async () => {
+  it('writes a ready report with sorted generatedFor and an input fingerprint on success', async () => {
     medicationsGetMock.mockResolvedValue({
       docs: [
         medicationDoc('ibuprofen', 'Ibuprofen', '200mg'),
@@ -82,13 +87,28 @@ describe('regenerateInteractionReport', () => {
         status: 'ready',
         findings,
         generatedFor: ['aspirin', 'ibuprofen'],
+        inputFingerprint: expect.any(String),
         patientProfileUpdatedAt: null,
       }),
-      { merge: true },
     )
   })
 
   it('writes an error status without touching prior findings when the Claude call fails', async () => {
+    reportGetMock.mockResolvedValue({
+      data: () => ({
+        findings: [
+          {
+            type: 'caveat',
+            severity: 'minor',
+            medicationIds: ['aspirin'],
+            detail: 'take with food',
+          },
+        ],
+        generatedFor: ['aspirin'],
+        inputFingerprint: 'old-fingerprint',
+        patientProfileUpdatedAt: null,
+      }),
+    })
     medicationsGetMock.mockResolvedValue({
       docs: [medicationDoc('aspirin', 'Aspirin', '81mg')],
     })
@@ -98,8 +118,46 @@ describe('regenerateInteractionReport', () => {
     await regenerateInteractionReport('test-key')
 
     expect(setMock).toHaveBeenLastCalledWith(
-      { status: 'error', error: 'boom' },
-      { merge: true },
+      expect.objectContaining({
+        status: 'error',
+        error: 'boom',
+        findings: [
+          {
+            type: 'caveat',
+            severity: 'minor',
+            medicationIds: ['aspirin'],
+            detail: 'take with food',
+          },
+        ],
+        generatedFor: ['aspirin'],
+        inputFingerprint: 'old-fingerprint',
+      }),
+    )
+  })
+
+  it('does not overwrite a newer report when the inputs change before Claude returns', async () => {
+    medicationsGetMock
+      .mockResolvedValueOnce({
+        docs: [medicationDoc('aspirin', 'Aspirin', '81mg')],
+      })
+      .mockResolvedValueOnce({
+        docs: [medicationDoc('ibuprofen', 'Ibuprofen', '200mg')],
+      })
+    patientGetMock.mockResolvedValue({ exists: false, updateTime: undefined })
+    ;(requestFindings as jest.Mock).mockResolvedValue([
+      {
+        type: 'caveat',
+        severity: 'minor',
+        medicationIds: ['aspirin'],
+        detail: 'take with food',
+      },
+    ])
+
+    await regenerateInteractionReport('test-key')
+
+    expect(setMock).toHaveBeenCalledTimes(1)
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'pending' }),
     )
   })
 })

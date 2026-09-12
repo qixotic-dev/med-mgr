@@ -3,6 +3,8 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod/v4'
 import type { Finding } from './types'
 
+const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-5'
+
 const FindingSchema = z.object({
   type: z.enum(['drug-drug', 'drug-condition', 'drug-allergy', 'caveat']),
   severity: z.enum(['minor', 'moderate', 'major']),
@@ -13,6 +15,13 @@ const FindingSchema = z.object({
 const FindingsSchema = z.object({
   findings: z.array(FindingSchema),
 })
+
+const EXPECTED_MEDICATION_COUNTS: Record<Finding['type'], number> = {
+  'drug-drug': 2,
+  'drug-condition': 1,
+  'drug-allergy': 1,
+  caveat: 1,
+}
 
 export interface MedicationInput {
   id: string
@@ -26,6 +35,41 @@ export interface PatientInput {
   allergies?: string[]
   conditions?: string[]
   weight?: string
+}
+
+function anthropicModel(): string {
+  return process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL
+}
+
+function validateFindings(
+  findings: Finding[],
+  medications: MedicationInput[],
+): Finding[] {
+  const medicationIds = new Set(medications.map((medication) => medication.id))
+
+  return findings.map((finding) => {
+    const expectedMedicationCount = EXPECTED_MEDICATION_COUNTS[finding.type]
+    const uniqueMedicationIds = new Set(finding.medicationIds)
+
+    if (
+      finding.medicationIds.length !== expectedMedicationCount ||
+      uniqueMedicationIds.size !== expectedMedicationCount
+    ) {
+      throw new Error(
+        `Claude returned an invalid medication count for ${finding.type}`,
+      )
+    }
+
+    if (
+      finding.medicationIds.some(
+        (medicationId) => !medicationIds.has(medicationId),
+      )
+    ) {
+      throw new Error('Claude returned a finding for an unknown medication id')
+    }
+
+    return finding
+  })
 }
 
 const SYSTEM_PROMPT = `You help one person track possible drug interactions and caveats among their own medications. This is an educational aid, not medical advice — hedge appropriately and never state a finding with more certainty than the evidence supports; the person should confirm anything important with their pharmacist or doctor.
@@ -53,7 +97,7 @@ export async function requestFindings(
   )
 
   const response = await client.messages.parse({
-    model: 'claude-opus-5',
+    model: anthropicModel(),
     max_tokens: 16000,
     thinking: { type: 'adaptive' },
     output_config: {
@@ -70,5 +114,5 @@ export async function requestFindings(
     )
   }
 
-  return response.parsed_output.findings
+  return validateFindings(response.parsed_output.findings, medications)
 }

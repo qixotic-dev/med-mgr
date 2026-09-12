@@ -1,6 +1,7 @@
 import { requestFindings } from './claude'
 
 const parseMock = jest.fn()
+const originalAnthropicModel = process.env.ANTHROPIC_MODEL
 
 jest.mock('@anthropic-ai/sdk', () => ({
   __esModule: true,
@@ -16,9 +17,19 @@ jest.mock('@anthropic-ai/sdk/helpers/zod', () => ({
 describe('requestFindings', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    delete process.env.ANTHROPIC_MODEL
   })
 
-  it('returns the parsed findings and calls Opus 5 with high effort', async () => {
+  afterAll(() => {
+    if (originalAnthropicModel === undefined) {
+      delete process.env.ANTHROPIC_MODEL
+      return
+    }
+
+    process.env.ANTHROPIC_MODEL = originalAnthropicModel
+  })
+
+  it('returns the parsed findings and calls the configured Claude model with high effort', async () => {
     const findings = [
       {
         type: 'caveat',
@@ -38,10 +49,25 @@ describe('requestFindings', () => {
     expect(result).toEqual(findings)
     expect(parseMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'claude-opus-5',
+        model: 'claude-sonnet-4-5',
         thinking: { type: 'adaptive' },
         output_config: expect.objectContaining({ effort: 'high' }),
       }),
+    )
+  })
+
+  it('uses ANTHROPIC_MODEL when configured', async () => {
+    process.env.ANTHROPIC_MODEL = 'claude-opus-4-1'
+    parseMock.mockResolvedValue({ parsed_output: { findings: [] } })
+
+    await requestFindings(
+      'key',
+      [{ id: 'aspirin', name: 'Aspirin', dose: '81mg' }],
+      null,
+    )
+
+    expect(parseMock).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'claude-opus-4-1' }),
     )
   })
 
@@ -55,5 +81,54 @@ describe('requestFindings', () => {
         null,
       ),
     ).rejects.toThrow('did not match the expected findings schema')
+  })
+
+  it('throws when Claude returns a finding for an unknown medication id', async () => {
+    parseMock.mockResolvedValue({
+      parsed_output: {
+        findings: [
+          {
+            type: 'caveat',
+            severity: 'minor',
+            medicationIds: ['invented-id'],
+            detail: 'x',
+          },
+        ],
+      },
+    })
+
+    await expect(
+      requestFindings(
+        'key',
+        [{ id: 'aspirin', name: 'Aspirin', dose: '81mg' }],
+        null,
+      ),
+    ).rejects.toThrow('unknown medication id')
+  })
+
+  it('throws when Claude returns the wrong medication count for a finding', async () => {
+    parseMock.mockResolvedValue({
+      parsed_output: {
+        findings: [
+          {
+            type: 'drug-drug',
+            severity: 'moderate',
+            medicationIds: ['aspirin'],
+            detail: 'x',
+          },
+        ],
+      },
+    })
+
+    await expect(
+      requestFindings(
+        'key',
+        [
+          { id: 'aspirin', name: 'Aspirin', dose: '81mg' },
+          { id: 'ibuprofen', name: 'Ibuprofen', dose: '200mg' },
+        ],
+        null,
+      ),
+    ).rejects.toThrow('invalid medication count')
   })
 })

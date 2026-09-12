@@ -73,7 +73,7 @@
       }
 
       @if (
-        report.findings.length === 0 && report.status === 'ready' && !isStale()
+        report.status === 'ready' && report.findings.length === 0 && !isStale()
       ) {
         <p class="empty-state">
           No interactions or caveats found for your current medications.

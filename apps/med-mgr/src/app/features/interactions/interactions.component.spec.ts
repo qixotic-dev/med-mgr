@@ -1,6 +1,8 @@
 import type { Medication } from '../../models/medication.model'
 import type { InteractionReport } from '../../models/interaction-report.model'
+import type { Patient } from '../../models/patient.model'
 import {
+  buildReportInputFingerprint,
   fromDraft,
   groupFindings,
   isReportStale,
@@ -72,29 +74,66 @@ describe('isReportStale', () => {
       intervalDays: 30,
     },
   ]
+  const patient: Patient = {
+    birthdate: '1980-01-01',
+    sex: 'female',
+    allergies: ['penicillin'],
+    conditions: ['kidney disease'],
+    weight: '160 lbs',
+  }
 
-  function reportWith(generatedFor: string[]): InteractionReport {
+  function reportWith(
+    generatedFor: string[],
+    inputFingerprint = buildReportInputFingerprint(medications, patient),
+  ): InteractionReport {
     return {
       status: 'ready',
       findings: [],
       generatedFor,
+      inputFingerprint,
       patientProfileUpdatedAt: null,
       updatedAt: '2026-01-01T00:00:00.000Z',
     }
   }
 
   it('is false when there is no report yet', () => {
-    expect(isReportStale(undefined, medications)).toBe(false)
+    expect(isReportStale(undefined, medications, patient)).toBe(false)
   })
 
-  it('is true when generatedFor does not match the current medication ids', () => {
-    expect(isReportStale(reportWith(['aspirin']), medications)).toBe(true)
+  it('is true for a legacy report without an input fingerprint', () => {
+    const legacyReport = {
+      ...reportWith(['aspirin', 'ibuprofen']),
+      inputFingerprint: undefined,
+    } as unknown as InteractionReport
+
+    expect(isReportStale(legacyReport, medications, patient)).toBe(true)
   })
 
-  it('is false when generatedFor matches the current medication ids regardless of order', () => {
+  it('is false when the current inputs match regardless of medication order', () => {
     expect(
-      isReportStale(reportWith(['ibuprofen', 'aspirin']), medications),
+      isReportStale(reportWith(['ibuprofen', 'aspirin']), medications, patient),
     ).toBe(false)
+  })
+
+  it('is true when a medication changes but the ids stay the same', () => {
+    const editedMedications = medications.map((medication) =>
+      medication.id === 'aspirin'
+        ? { ...medication, dose: '325mg' }
+        : medication,
+    )
+
+    expect(
+      isReportStale(reportWith(['ibuprofen', 'aspirin']), editedMedications, patient),
+    ).toBe(true)
+  })
+
+  it('is true when the patient profile changes', () => {
+    expect(
+      isReportStale(reportWith(['ibuprofen', 'aspirin']), medications, {
+        ...patient,
+        weight: '170 lbs',
+      }),
+    ).toBe(true)
   })
 })
 

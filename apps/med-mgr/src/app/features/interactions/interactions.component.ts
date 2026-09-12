@@ -75,6 +75,39 @@ function splitList(text: string): string[] {
     .filter((item) => item !== '')
 }
 
+function normalizePatient(patient: Patient | undefined): Patient | null {
+  if (!patient) {
+    return null
+  }
+
+  return {
+    birthdate: patient.birthdate,
+    sex: patient.sex,
+    allergies: patient.allergies,
+    conditions: patient.conditions,
+    weight: patient.weight,
+  }
+}
+
+function reportInputFingerprint(
+  report: InteractionReport | undefined,
+): string | undefined {
+  const { inputFingerprint } = (report ?? {}) as Partial<InteractionReport>
+  return typeof inputFingerprint === 'string' ? inputFingerprint : undefined
+}
+
+export function buildReportInputFingerprint(
+  medications: Medication[],
+  patient: Patient | undefined,
+): string {
+  return JSON.stringify({
+    medications: [...medications]
+      .map(({ id, name, dose }) => ({ id, name, dose }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    patient: normalizePatient(patient),
+  })
+}
+
 /**
  * True when `report` was generated for a different medication list than
  * `medications` — Firestore triggers give no ordering guarantee, so a
@@ -85,13 +118,20 @@ function splitList(text: string): string[] {
 export function isReportStale(
   report: InteractionReport | undefined,
   medications: Medication[],
+  patient: Patient | undefined,
 ): boolean {
   if (!report) {
     return false
   }
-  const currentIds = [...medications].map((m) => m.id).sort()
-  const reportIds = [...report.generatedFor].sort()
-  return JSON.stringify(currentIds) !== JSON.stringify(reportIds)
+
+  const currentFingerprint = buildReportInputFingerprint(medications, patient)
+  const currentReportFingerprint = reportInputFingerprint(report)
+
+  if (!currentReportFingerprint) {
+    return medications.length > 0
+  }
+
+  return currentReportFingerprint !== currentFingerprint
 }
 
 const FINDING_TYPE_ORDER: FindingType[] = [
@@ -173,6 +213,7 @@ export class InteractionsComponent {
   )
 
   private hydratedDraft = false
+  private lastOnDemandRequestKey: string | null = null
 
   /** Editable copy of the Patient profile — a plain field, not a signal, so
    * `[(ngModel)]` can mutate it in place (see MedicationsComponent.draft's
@@ -186,9 +227,14 @@ export class InteractionsComponent {
     () => this.medications().length > 0,
   )
 
-  protected readonly isStale = computed(() =>
-    isReportStale(this.report(), this.medications()),
-  )
+  protected readonly isStale = computed(() => {
+    const load = this.patientLoad()
+    if (load === undefined) {
+      return false
+    }
+
+    return isReportStale(this.report(), this.medications(), load.patient)
+  })
 
   protected readonly findingGroups = computed(() =>
     groupFindings(this.report()?.findings ?? [], this.medications()),
@@ -206,6 +252,32 @@ export class InteractionsComponent {
       // binding), so it needs an explicit nudge to reach the OnPush view —
       // see PrescriptionsComponent's reconcile effect for the same pattern.
       this.changeDetectorRef.markForCheck()
+    })
+
+    effect(() => {
+      const load = this.patientLoad()
+      if (load === undefined || !this.hasMedications()) {
+        return
+      }
+
+      const report = this.report()
+      if (report?.status === 'pending') {
+        return
+      }
+
+      const missingReport = report === undefined
+      const missingFingerprint = !missingReport && !reportInputFingerprint(report)
+      if (!missingReport && !missingFingerprint) {
+        return
+      }
+
+      const requestKey = `${missingReport ? 'missing' : 'legacy'}:${buildReportInputFingerprint(this.medications(), load.patient)}`
+      if (requestKey === this.lastOnDemandRequestKey) {
+        return
+      }
+
+      this.lastOnDemandRequestKey = requestKey
+      void this.interactionReportService.regenerateOnDemand().catch(() => undefined)
     })
   }
 

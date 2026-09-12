@@ -4,10 +4,141 @@ import {
   type MedicationInput,
   type PatientInput,
 } from './claude'
+import type { Finding } from './types'
 
 const MEDICATIONS_COLLECTION = 'medications'
 const PATIENT_DOC_PATH = 'patients/me'
 const REPORT_DOC_PATH = 'interactionReports/current'
+
+type ReportStatus = 'pending' | 'ready' | 'error'
+
+interface StoredInteractionReport {
+  findings?: Finding[]
+  generatedFor?: string[]
+  inputFingerprint?: string
+  patientProfileUpdatedAt?: string | null
+}
+
+interface ReportInputs {
+  medications: MedicationInput[]
+  patient: PatientInput | null
+  generatedFor: string[]
+  inputFingerprint: string
+  patientProfileUpdatedAt: string | null
+}
+
+function normalizePatient(patient: PatientInput | null): PatientInput | null {
+  if (!patient) {
+    return null
+  }
+
+  return {
+    birthdate: patient.birthdate ?? '',
+    sex: patient.sex ?? '',
+    allergies: patient.allergies ?? [],
+    conditions: patient.conditions ?? [],
+    weight: patient.weight ?? '',
+  }
+}
+
+function buildReportInputFingerprint(
+  medications: MedicationInput[],
+  patient: PatientInput | null,
+): string {
+  return JSON.stringify({
+    medications: [...medications]
+      .map(({ id, name, dose }) => ({ id, name, dose }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    patient: normalizePatient(patient),
+  })
+}
+
+function readStoredReport(data: unknown): StoredInteractionReport | undefined {
+  if (!data || typeof data !== 'object') {
+    return undefined
+  }
+
+  const report = data as StoredInteractionReport
+  return {
+    findings: Array.isArray(report.findings) ? report.findings : undefined,
+    generatedFor: Array.isArray(report.generatedFor)
+      ? report.generatedFor
+      : undefined,
+    inputFingerprint:
+      typeof report.inputFingerprint === 'string'
+        ? report.inputFingerprint
+        : undefined,
+    patientProfileUpdatedAt:
+      report.patientProfileUpdatedAt === null ||
+      typeof report.patientProfileUpdatedAt === 'string'
+        ? report.patientProfileUpdatedAt
+        : undefined,
+  }
+}
+
+function buildPendingOrErrorReport(
+  status: 'pending' | 'error',
+  previousReport: StoredInteractionReport | undefined,
+  inputs: ReportInputs | undefined,
+  updatedAt: string,
+  error?: string,
+) {
+  return {
+    status,
+    findings: previousReport?.findings ?? [],
+    generatedFor: previousReport?.generatedFor ?? inputs?.generatedFor ?? [],
+    inputFingerprint:
+      previousReport?.inputFingerprint ??
+      inputs?.inputFingerprint ??
+      buildReportInputFingerprint([], null),
+    patientProfileUpdatedAt:
+      previousReport?.patientProfileUpdatedAt ??
+      inputs?.patientProfileUpdatedAt ??
+      null,
+    updatedAt,
+    ...(error ? { error } : {}),
+  }
+}
+
+function buildReadyReport(
+  findings: Finding[],
+  inputs: ReportInputs,
+  updatedAt: string,
+) {
+  return {
+    status: 'ready' as ReportStatus,
+    findings,
+    generatedFor: inputs.generatedFor,
+    inputFingerprint: inputs.inputFingerprint,
+    patientProfileUpdatedAt: inputs.patientProfileUpdatedAt,
+    updatedAt,
+  }
+}
+
+async function loadReportInputs(db: ReturnType<typeof getFirestore>) {
+  const medicationsSnapshot = await db.collection(MEDICATIONS_COLLECTION).get()
+  const medications: MedicationInput[] = medicationsSnapshot.docs.map((d) => ({
+    id: d.id,
+    name: d.get('name') as string,
+    dose: d.get('dose') as string,
+  }))
+
+  const patientSnapshot = await db.doc(PATIENT_DOC_PATH).get()
+  const patient = (
+    patientSnapshot.exists ? patientSnapshot.data() : null
+  ) as PatientInput | null
+  const patientProfileUpdatedAt = patientSnapshot.updateTime
+    ? patientSnapshot.updateTime.toDate().toISOString()
+    : null
+
+  return {
+    medications,
+    patient,
+    generatedFor: medications.map((m) => m.id).sort(),
+    inputFingerprint: buildReportInputFingerprint(medications, patient),
+    patientProfileUpdatedAt,
+  }
+}
 
 /**
  * Rebuilds the Interaction Report from the current medications + patient
@@ -19,64 +150,46 @@ export async function regenerateInteractionReport(
 ): Promise<void> {
   const db = getFirestore()
   const reportRef = db.doc(REPORT_DOC_PATH)
-
-  // Fast optimistic write so the page shows "regenerating" immediately.
-  await reportRef.set({ status: 'pending' }, { merge: true })
-
-  const medicationsSnapshot = await db.collection(MEDICATIONS_COLLECTION).get()
-  const medications: MedicationInput[] = medicationsSnapshot.docs.map((d) => ({
-    id: d.id,
-    name: d.get('name') as string,
-    dose: d.get('dose') as string,
-  }))
-
-  if (medications.length === 0) {
-    await reportRef.set(
-      {
-        status: 'ready',
-        findings: [],
-        generatedFor: [],
-        patientProfileUpdatedAt: null,
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true },
-    )
-    return
-  }
-
-  const patientSnapshot = await db.doc(PATIENT_DOC_PATH).get()
-  const patient = (
-    patientSnapshot.exists ? patientSnapshot.data() : null
-  ) as PatientInput | null
-  const patientProfileUpdatedAt = patientSnapshot.updateTime
-    ? patientSnapshot.updateTime.toDate().toISOString()
-    : null
-
-  // Sorted so the page can compare it directly against the live medication
-  // id list to detect a stale report (see InteractionReport.generatedFor).
-  const generatedFor = medications.map((m) => m.id).sort()
+  let previousReport: StoredInteractionReport | undefined
+  let inputs: ReportInputs | undefined
 
   try {
-    const findings = await requestFindings(apiKey, medications, patient)
+    previousReport = readStoredReport((await reportRef.get()).data())
+    inputs = await loadReportInputs(db)
+
     await reportRef.set(
-      {
-        status: 'ready',
-        findings,
-        generatedFor,
-        patientProfileUpdatedAt,
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true },
+      buildPendingOrErrorReport(
+        'pending',
+        previousReport,
+        inputs,
+        new Date().toISOString(),
+      ),
+    )
+
+    if (inputs.medications.length === 0) {
+      await reportRef.set(buildReadyReport([], inputs, new Date().toISOString()))
+      return
+    }
+
+    const findings = await requestFindings(apiKey, inputs.medications, inputs.patient)
+    const latestInputs = await loadReportInputs(db)
+
+    if (latestInputs.inputFingerprint !== inputs.inputFingerprint) {
+      return
+    }
+
+    await reportRef.set(
+      buildReadyReport(findings, inputs, new Date().toISOString()),
     )
   } catch (err) {
-    // Leave the previous findings/generatedFor in place — the page falls
-    // back to the last known-good report alongside the error banner.
     await reportRef.set(
-      {
-        status: 'error',
-        error: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { merge: true },
+      buildPendingOrErrorReport(
+        'error',
+        previousReport,
+        inputs,
+        new Date().toISOString(),
+        err instanceof Error ? err.message : 'Unknown error',
+      ),
     )
   }
 }

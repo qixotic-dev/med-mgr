@@ -30,6 +30,8 @@ export interface InteractionReport {
    * after a newer change already started.
    */
   generatedFor: string[]
+  /** Deterministic fingerprint of the medication names/doses plus Patient inputs used for generation. */
+  inputFingerprint: string
   patientProfileUpdatedAt: string | null
   /** Present only when status === 'error'. */
   error?: string
