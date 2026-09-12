@@ -10,7 +10,7 @@ import { PrescriptionsComponent } from './prescriptions.component'
 describe('PrescriptionsComponent', () => {
   const medication: Medication = {
     id: 'med-1',
-    name: 'Test Med',
+    commonName: 'Test Med',
     dose: '10mg',
     category: 'General',
     intervalDays: 30,

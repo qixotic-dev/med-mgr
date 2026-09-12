@@ -32,7 +32,7 @@ describe('requestFindings', () => {
     const result = await requestFindings(
       'key',
       'claude-sonnet-4-5',
-      [{ id: 'aspirin', name: 'Aspirin', dose: '81mg' }],
+      [{ id: 'aspirin', commonName: 'Aspirin', dose: '81mg' }],
       null,
     )
 
@@ -52,7 +52,7 @@ describe('requestFindings', () => {
     await requestFindings(
       'key',
       'claude-opus-4-1',
-      [{ id: 'aspirin', name: 'Aspirin', dose: '81mg' }],
+      [{ id: 'aspirin', commonName: 'Aspirin', dose: '81mg' }],
       null,
     )
 
@@ -68,7 +68,7 @@ describe('requestFindings', () => {
       requestFindings(
         'key',
         'claude-sonnet-4-5',
-        [{ id: 'aspirin', name: 'Aspirin', dose: '81mg' }],
+        [{ id: 'aspirin', commonName: 'Aspirin', dose: '81mg' }],
         null,
       ),
     ).rejects.toThrow('did not match the expected findings schema')
@@ -92,7 +92,7 @@ describe('requestFindings', () => {
       requestFindings(
         'key',
         'claude-sonnet-4-5',
-        [{ id: 'aspirin', name: 'Aspirin', dose: '81mg' }],
+        [{ id: 'aspirin', commonName: 'Aspirin', dose: '81mg' }],
         null,
       ),
     ).rejects.toThrow('unknown medication id')
@@ -117,8 +117,8 @@ describe('requestFindings', () => {
         'key',
         'claude-sonnet-4-5',
         [
-          { id: 'aspirin', name: 'Aspirin', dose: '81mg' },
-          { id: 'ibuprofen', name: 'Ibuprofen', dose: '200mg' },
+          { id: 'aspirin', commonName: 'Aspirin', dose: '81mg' },
+          { id: 'ibuprofen', commonName: 'Ibuprofen', dose: '200mg' },
         ],
         null,
       ),

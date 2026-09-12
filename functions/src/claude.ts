@@ -23,7 +23,8 @@ const EXPECTED_MEDICATION_COUNTS: Record<Finding['type'], number> = {
 
 export interface MedicationInput {
   id: string
-  name: string
+  commonName: string
+  clinicalName?: string
   dose: string
 }
 

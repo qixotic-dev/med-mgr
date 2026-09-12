@@ -72,8 +72,8 @@ export function buildEvent(
   howToOrder: string,
 ): CalendarEvent {
   return {
-    summary: `Rx: Order ${medication.name} (${medication.dose})`,
-    description: `Reminder to order ${medication.name} ${medication.dose}.\n\n${howToOrder}`,
+    summary: `Rx: Order ${medication.commonName} (${medication.dose})`,
+    description: `Reminder to order ${medication.commonName} ${medication.dose}.\n\n${howToOrder}`,
     start: { date: nextOrderDate },
     end: { date: addDays(nextOrderDate, 1) },
     reminders: {

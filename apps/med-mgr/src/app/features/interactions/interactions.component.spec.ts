@@ -61,14 +61,14 @@ describe('isReportStale', () => {
   const medications: Medication[] = [
     {
       id: 'aspirin',
-      name: 'Aspirin',
+      commonName: 'Aspirin',
       dose: '81mg',
       category: 'Heart',
       intervalDays: 30,
     },
     {
       id: 'ibuprofen',
-      name: 'Ibuprofen',
+      commonName: 'Ibuprofen',
       dose: '200mg',
       category: 'Pain',
       intervalDays: 30,
@@ -131,6 +131,22 @@ describe('isReportStale', () => {
     ).toBe(true)
   })
 
+  it('is true when only a clinical name changes', () => {
+    const editedMedications = medications.map((medication) =>
+      medication.id === 'aspirin'
+        ? { ...medication, clinicalName: 'Acetylsalicylic acid' }
+        : medication,
+    )
+
+    expect(
+      isReportStale(
+        reportWith(['ibuprofen', 'aspirin']),
+        editedMedications,
+        patient,
+      ),
+    ).toBe(true)
+  })
+
   it('is true when the patient profile changes', () => {
     expect(
       isReportStale(reportWith(['ibuprofen', 'aspirin']), medications, {
@@ -145,14 +161,14 @@ describe('groupFindings', () => {
   const medications: Medication[] = [
     {
       id: 'aspirin',
-      name: 'Aspirin',
+      commonName: 'Aspirin',
       dose: '81mg',
       category: 'Heart',
       intervalDays: 30,
     },
     {
       id: 'ibuprofen',
-      name: 'Ibuprofen',
+      commonName: 'Ibuprofen',
       dose: '200mg',
       category: 'Pain',
       intervalDays: 30,

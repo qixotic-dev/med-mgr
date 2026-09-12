@@ -5,7 +5,7 @@ describe('buildEvent', () => {
     const event = buildEvent(
       {
         id: 'med-1',
-        name: 'Test Med',
+        commonName: 'Test Med',
         dose: '10mg',
         category: 'General',
         intervalDays: 30,
