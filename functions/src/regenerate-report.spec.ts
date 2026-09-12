@@ -252,4 +252,33 @@ describe('regenerateInteractionReport', () => {
     )
     expect(transactionSetMock).not.toHaveBeenCalled()
   })
+
+  it('does not commit a ready report when the transaction sees a different pending fingerprint', async () => {
+    medicationsGetMock.mockResolvedValue({
+      docs: [
+        medicationDoc('ibuprofen', 'Ibuprofen', '200mg'),
+        medicationDoc('aspirin', 'Aspirin', '81mg'),
+      ],
+    })
+    transactionGetMock.mockResolvedValue({
+      data: () => ({
+        status: 'pending',
+        inputFingerprint:
+          '{"medications":[{"id":"acetaminophen","name":"Acetaminophen","dose":"500mg"}],"patient":null}',
+      }),
+    })
+    const findings = [
+      {
+        type: 'drug-drug',
+        severity: 'moderate',
+        medicationIds: ['aspirin', 'ibuprofen'],
+        detail: 'increased bleeding risk',
+      },
+    ]
+    ;(requestFindings as jest.Mock).mockResolvedValue(findings)
+
+    await regenerateInteractionReport('test-key', 'claude-sonnet-4-5')
+
+    expect(transactionSetMock).not.toHaveBeenCalled()
+  })
 })
