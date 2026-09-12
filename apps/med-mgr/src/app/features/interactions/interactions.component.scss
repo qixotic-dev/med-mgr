@@ -1,0 +1,110 @@
+:host {
+  display: block;
+}
+
+.interactions {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.patient-editor {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+
+  summary {
+    cursor: pointer;
+    font-weight: 500;
+  }
+}
+
+.patient-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  button[type='submit'] {
+    align-self: flex-start;
+    background: var(--primary);
+    color: var(--surface);
+    padding: 0.6rem 1.5rem;
+  }
+}
+
+.disclaimer {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 1.5rem;
+}
+
+.status-note {
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  margin: 0 0 1rem;
+
+  &.pending {
+    background: var(--border);
+    color: var(--muted);
+  }
+
+  &.error {
+    background: var(--danger);
+    color: var(--danger-tint);
+  }
+}
+
+.empty-state {
+  max-width: 24rem;
+  margin: 4rem auto;
+  text-align: center;
+  color: var(--muted);
+}
+
+.finding-group {
+  margin-bottom: 1.5rem;
+
+  h3 {
+    margin: 0 0 0.5rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+}
+
+.finding {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.finding-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.finding-medications {
+  display: block;
+  font-weight: 500;
+}
+
+.finding-detail {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+}

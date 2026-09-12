@@ -28,6 +28,7 @@ describe('AppComponent', () => {
         provideRouter([
           { path: '', component: RouteStubComponent },
           { path: 'medications', component: RouteStubComponent },
+          { path: 'interactions', component: RouteStubComponent },
         ]),
         { provide: AuthService, useValue: { session$ } },
         { provide: ActivatedRoute, useValue: {} },
@@ -55,17 +56,19 @@ describe('AppComponent', () => {
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/login')
   })
 
-  it('renders both tabs with Prescriptions active on the root route', () => {
+  it('renders all three tabs with Prescriptions active on the root route', () => {
     const fixture = TestBed.createComponent(AppComponent)
     fixture.detectChanges()
 
     const tabs: NodeListOf<HTMLAnchorElement> =
       fixture.nativeElement.querySelectorAll('.tab')
-    expect(tabs.length).toBe(2)
+    expect(tabs.length).toBe(3)
     expect(tabs[0].textContent?.trim()).toBe('Prescriptions')
     expect(tabs[1].textContent?.trim()).toBe('Medications')
+    expect(tabs[2].textContent?.trim()).toBe('Interactions')
     expect(tabs[0].classList.contains('active')).toBe(true)
     expect(tabs[1].classList.contains('active')).toBe(false)
+    expect(tabs[2].classList.contains('active')).toBe(false)
   })
 
   it('marks the Medications tab active after navigating to /medications', async () => {
@@ -83,6 +86,22 @@ describe('AppComponent', () => {
       fixture.nativeElement.querySelectorAll('.tab')
     expect(tabs[0].classList.contains('active')).toBe(false)
     expect(tabs[1].classList.contains('active')).toBe(true)
+    expect(tabs[2].classList.contains('active')).toBe(false)
+  })
+
+  it('marks the Interactions tab active after navigating to /interactions', async () => {
+    const fixture = TestBed.createComponent(AppComponent)
+    fixture.detectChanges()
+
+    navigateByUrlSpy.mockRestore()
+    await TestBed.inject(Router).navigateByUrl('/interactions')
+    fixture.detectChanges()
+
+    const tabs: NodeListOf<HTMLAnchorElement> =
+      fixture.nativeElement.querySelectorAll('.tab')
+    expect(tabs[0].classList.contains('active')).toBe(false)
+    expect(tabs[1].classList.contains('active')).toBe(false)
+    expect(tabs[2].classList.contains('active')).toBe(true)
   })
 
   it('toggles the theme when the theme button is clicked', async () => {
