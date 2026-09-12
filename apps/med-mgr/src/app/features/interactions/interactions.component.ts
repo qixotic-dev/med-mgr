@@ -109,11 +109,10 @@ export function buildReportInputFingerprint(
 }
 
 /**
- * True when `report` was generated for a different medication list than
- * `medications` — Firestore triggers give no ordering guarantee, so a
- * `ready` report can finish for an older list after a newer change already
- * started (see InteractionReport.generatedFor). Exported for direct unit
- * testing.
+ * True when `report` was generated for different medication/patient inputs
+ * than the live ones — Firestore triggers give no ordering guarantee, so a
+ * `ready` report can finish for older inputs after a newer change already
+ * started. Exported for direct unit testing.
  */
 export function isReportStale(
   report: InteractionReport | undefined,
@@ -182,8 +181,9 @@ export function groupFindings(
  * The Interaction Report page (see CONTEXT.md: Interaction Report, Finding,
  * Patient). Read-only display of the AI-generated report plus a Patient
  * profile editor — regeneration itself happens server-side (the
- * interaction-report Cloud Function), triggered by writes to `medications`
- * or `patients/me`; this component never calls the AI directly.
+ * interaction-report Cloud Function), usually from writes to `medications`
+ * or `patients/me`, with an on-demand backfill call when older data has no
+ * current report yet; this component never calls the AI directly.
  */
 @Component({
   selector: 'app-interactions',

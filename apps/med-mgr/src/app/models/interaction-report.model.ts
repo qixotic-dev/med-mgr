@@ -24,10 +24,9 @@ export interface InteractionReport {
   status: 'pending' | 'ready' | 'error'
   findings: Finding[]
   /**
-   * Sorted Medication ids this report was generated from. Compare against
-   * the live medication list to detect a stale report — Firestore triggers
-   * give no ordering guarantee, so a report can finish for an older list
-   * after a newer change already started.
+   * Sorted Medication ids this report was generated from. Kept for display /
+   * inspection; freshness checks use inputFingerprint because the report also
+   * depends on medication names/doses and the Patient profile.
    */
   generatedFor: string[]
   /** Deterministic fingerprint of the medication names/doses plus Patient inputs used for generation. */

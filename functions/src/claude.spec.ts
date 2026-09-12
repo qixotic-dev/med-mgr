@@ -1,7 +1,6 @@
 import { requestFindings } from './claude'
 
 const parseMock = jest.fn()
-const originalAnthropicModel = process.env.ANTHROPIC_MODEL
 
 jest.mock('@anthropic-ai/sdk', () => ({
   __esModule: true,
@@ -17,19 +16,9 @@ jest.mock('@anthropic-ai/sdk/helpers/zod', () => ({
 describe('requestFindings', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    delete process.env.ANTHROPIC_MODEL
   })
 
-  afterAll(() => {
-    if (originalAnthropicModel === undefined) {
-      delete process.env.ANTHROPIC_MODEL
-      return
-    }
-
-    process.env.ANTHROPIC_MODEL = originalAnthropicModel
-  })
-
-  it('returns the parsed findings and calls the configured Claude model with high effort', async () => {
+  it('returns the parsed findings and calls the requested Claude model with high effort', async () => {
     const findings = [
       {
         type: 'caveat',
@@ -42,6 +31,7 @@ describe('requestFindings', () => {
 
     const result = await requestFindings(
       'key',
+      'claude-sonnet-4-5',
       [{ id: 'aspirin', name: 'Aspirin', dose: '81mg' }],
       null,
     )
@@ -56,12 +46,12 @@ describe('requestFindings', () => {
     )
   })
 
-  it('uses ANTHROPIC_MODEL when configured', async () => {
-    process.env.ANTHROPIC_MODEL = 'claude-opus-4-1'
+  it('uses the supplied model id', async () => {
     parseMock.mockResolvedValue({ parsed_output: { findings: [] } })
 
     await requestFindings(
       'key',
+      'claude-opus-4-1',
       [{ id: 'aspirin', name: 'Aspirin', dose: '81mg' }],
       null,
     )
@@ -77,6 +67,7 @@ describe('requestFindings', () => {
     await expect(
       requestFindings(
         'key',
+        'claude-sonnet-4-5',
         [{ id: 'aspirin', name: 'Aspirin', dose: '81mg' }],
         null,
       ),
@@ -100,6 +91,7 @@ describe('requestFindings', () => {
     await expect(
       requestFindings(
         'key',
+        'claude-sonnet-4-5',
         [{ id: 'aspirin', name: 'Aspirin', dose: '81mg' }],
         null,
       ),
@@ -123,6 +115,7 @@ describe('requestFindings', () => {
     await expect(
       requestFindings(
         'key',
+        'claude-sonnet-4-5',
         [
           { id: 'aspirin', name: 'Aspirin', dose: '81mg' },
           { id: 'ibuprofen', name: 'Ibuprofen', dose: '200mg' },

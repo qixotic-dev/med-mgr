@@ -77,24 +77,18 @@ function readStoredReport(data: unknown): StoredInteractionReport | undefined {
 }
 
 function buildPendingOrErrorReport(
-  status: 'pending' | 'error',
+  status: ReportStatus,
   previousReport: StoredInteractionReport | undefined,
-  inputs: ReportInputs | undefined,
+  inputs: ReportInputs,
   updatedAt: string,
   error?: string,
 ) {
   return {
     status,
     findings: previousReport?.findings ?? [],
-    generatedFor: previousReport?.generatedFor ?? inputs?.generatedFor ?? [],
-    inputFingerprint:
-      previousReport?.inputFingerprint ??
-      inputs?.inputFingerprint ??
-      buildReportInputFingerprint([], null),
-    patientProfileUpdatedAt:
-      previousReport?.patientProfileUpdatedAt ??
-      inputs?.patientProfileUpdatedAt ??
-      null,
+    generatedFor: inputs.generatedFor,
+    inputFingerprint: inputs.inputFingerprint,
+    patientProfileUpdatedAt: inputs.patientProfileUpdatedAt,
     updatedAt,
     ...(error ? { error } : {}),
   }
@@ -147,11 +141,18 @@ async function loadReportInputs(db: ReturnType<typeof getFirestore>) {
  */
 export async function regenerateInteractionReport(
   apiKey: string,
+  model: string,
 ): Promise<void> {
   const db = getFirestore()
   const reportRef = db.doc(REPORT_DOC_PATH)
   let previousReport: StoredInteractionReport | undefined
-  let inputs: ReportInputs | undefined
+  let inputs = {
+    medications: [] as MedicationInput[],
+    patient: null as PatientInput | null,
+    generatedFor: [] as string[],
+    inputFingerprint: buildReportInputFingerprint([], null),
+    patientProfileUpdatedAt: null as string | null,
+  }
 
   try {
     previousReport = readStoredReport((await reportRef.get()).data())
@@ -171,10 +172,26 @@ export async function regenerateInteractionReport(
       return
     }
 
-    const findings = await requestFindings(apiKey, inputs.medications, inputs.patient)
+    const findings = await requestFindings(
+      apiKey,
+      model,
+      inputs.medications,
+      inputs.patient,
+    )
     const latestInputs = await loadReportInputs(db)
 
     if (latestInputs.inputFingerprint !== inputs.inputFingerprint) {
+      const currentReport = readStoredReport((await reportRef.get()).data())
+      if (currentReport?.inputFingerprint === inputs.inputFingerprint) {
+        await reportRef.set(
+          buildPendingOrErrorReport(
+            'pending',
+            currentReport,
+            latestInputs,
+            new Date().toISOString(),
+          ),
+        )
+      }
       return
     }
 

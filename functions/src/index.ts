@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase-admin/app'
-import { defineSecret } from 'firebase-functions/params'
+import { defineSecret, defineString } from 'firebase-functions/params'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { regenerateInteractionReport } from './regenerate-report'
@@ -7,7 +7,10 @@ import { regenerateInteractionReport } from './regenerate-report'
 initializeApp()
 
 const anthropicApiKey = defineSecret('ANTHROPIC_API_KEY')
-const OWNER_EMAIL = 'qixoticsoftware@gmail.com'
+const anthropicModel = defineString('ANTHROPIC_MODEL', {
+  default: 'claude-sonnet-4-5',
+})
+const ownerEmail = defineString('OWNER_EMAIL')
 
 const COMMON_FUNCTION_OPTIONS = {
   // A high-effort Claude call can exceed the v2 default of 60s.
@@ -28,7 +31,10 @@ const TRIGGER_OPTIONS = {
 export const onMedicationWritten = onDocumentWritten(
   { document: 'medications/{medicationId}', ...TRIGGER_OPTIONS },
   async () => {
-    await regenerateInteractionReport(anthropicApiKey.value())
+    await regenerateInteractionReport(
+      anthropicApiKey.value(),
+      anthropicModel.value(),
+    )
   },
 )
 
@@ -36,6 +42,7 @@ export const onMedicationWritten = onDocumentWritten(
 export const regenerateInteractionReportOnDemand = onCall(
   COMMON_FUNCTION_OPTIONS,
   async (request) => {
+    const configuredOwnerEmail = ownerEmail.value().trim().toLowerCase()
     const email = request.auth?.token.email
     const emailVerified = request.auth?.token.email_verified === true
 
@@ -45,13 +52,16 @@ export const regenerateInteractionReportOnDemand = onCall(
 
     if (
       typeof email !== 'string' ||
-      email.toLowerCase() !== OWNER_EMAIL ||
+      email.toLowerCase() !== configuredOwnerEmail ||
       !emailVerified
     ) {
       throw new HttpsError('permission-denied', 'Only the owner can regenerate reports')
     }
 
-    await regenerateInteractionReport(anthropicApiKey.value())
+    await regenerateInteractionReport(
+      anthropicApiKey.value(),
+      anthropicModel.value(),
+    )
     return { ok: true }
   },
 )
@@ -60,6 +70,9 @@ export const regenerateInteractionReportOnDemand = onCall(
 export const onPatientWritten = onDocumentWritten(
   { document: 'patients/me', ...TRIGGER_OPTIONS },
   async () => {
-    await regenerateInteractionReport(anthropicApiKey.value())
+    await regenerateInteractionReport(
+      anthropicApiKey.value(),
+      anthropicModel.value(),
+    )
   },
 )

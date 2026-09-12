@@ -3,8 +3,6 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod/v4'
 import type { Finding } from './types'
 
-const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-5'
-
 const FindingSchema = z.object({
   type: z.enum(['drug-drug', 'drug-condition', 'drug-allergy', 'caveat']),
   severity: z.enum(['minor', 'moderate', 'major']),
@@ -35,10 +33,6 @@ export interface PatientInput {
   allergies?: string[]
   conditions?: string[]
   weight?: string
-}
-
-function anthropicModel(): string {
-  return process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL
 }
 
 function validateFindings(
@@ -85,6 +79,7 @@ Only report findings you have reasonable confidence in — omit a category entir
 /** Calls Claude to generate the Interaction Report findings for one medication list + patient profile. */
 export async function requestFindings(
   apiKey: string,
+  model: string,
   medications: MedicationInput[],
   patient: PatientInput | null,
 ): Promise<Finding[]> {
@@ -97,7 +92,7 @@ export async function requestFindings(
   )
 
   const response = await client.messages.parse({
-    model: anthropicModel(),
+    model,
     max_tokens: 16000,
     thinking: { type: 'adaptive' },
     output_config: {

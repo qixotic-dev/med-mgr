@@ -6,7 +6,7 @@ import * as functionsFns from '@angular/fire/functions'
 import { of } from 'rxjs'
 import { InteractionReportService } from './interaction-report.service'
 
-const callableMock = jest.fn().mockResolvedValue({ data: { ok: true } })
+const mockCallable = jest.fn().mockResolvedValue({ data: { ok: true } })
 
 jest.mock('@angular/fire/firestore', () => ({
   Firestore: class Firestore {},
@@ -16,7 +16,7 @@ jest.mock('@angular/fire/firestore', () => ({
 
 jest.mock('@angular/fire/functions', () => ({
   Functions: class Functions {},
-  httpsCallable: jest.fn(() => callableMock),
+  httpsCallable: jest.fn(() => mockCallable),
 }))
 
 describe('InteractionReportService', () => {
@@ -50,6 +50,6 @@ describe('InteractionReportService', () => {
       {},
       'regenerateInteractionReportOnDemand',
     )
-    expect(callableMock).toHaveBeenCalledWith({})
+    expect(mockCallable).toHaveBeenCalledWith({})
   })
 })

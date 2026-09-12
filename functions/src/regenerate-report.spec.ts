@@ -40,7 +40,7 @@ describe('regenerateInteractionReport', () => {
   it('writes an empty ready report and skips the Claude call when there are no medications', async () => {
     medicationsGetMock.mockResolvedValue({ docs: [] })
 
-    await regenerateInteractionReport('test-key')
+    await regenerateInteractionReport('test-key', 'claude-sonnet-4-5')
 
     expect(setMock).toHaveBeenNthCalledWith(
       1,
@@ -80,7 +80,7 @@ describe('regenerateInteractionReport', () => {
     ]
     ;(requestFindings as jest.Mock).mockResolvedValue(findings)
 
-    await regenerateInteractionReport('test-key')
+    await regenerateInteractionReport('test-key', 'claude-sonnet-4-5')
 
     expect(setMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -115,7 +115,7 @@ describe('regenerateInteractionReport', () => {
     patientGetMock.mockResolvedValue({ exists: false, updateTime: undefined })
     ;(requestFindings as jest.Mock).mockRejectedValue(new Error('boom'))
 
-    await regenerateInteractionReport('test-key')
+    await regenerateInteractionReport('test-key', 'claude-sonnet-4-5')
 
     expect(setMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -130,12 +130,21 @@ describe('regenerateInteractionReport', () => {
           },
         ],
         generatedFor: ['aspirin'],
-        inputFingerprint: 'old-fingerprint',
+        inputFingerprint:
+          '{"medications":[{"id":"aspirin","name":"Aspirin","dose":"81mg"}],"patient":null}',
       }),
     )
   })
 
   it('does not overwrite a newer report when the inputs change before Claude returns', async () => {
+    reportGetMock
+      .mockResolvedValueOnce({ data: () => undefined })
+      .mockResolvedValueOnce({
+        data: () => ({
+          inputFingerprint:
+            '{"medications":[{"id":"aspirin","name":"Aspirin","dose":"81mg"}],"patient":null}',
+        }),
+      })
     medicationsGetMock
       .mockResolvedValueOnce({
         docs: [medicationDoc('aspirin', 'Aspirin', '81mg')],
@@ -153,11 +162,20 @@ describe('regenerateInteractionReport', () => {
       },
     ])
 
-    await regenerateInteractionReport('test-key')
+    await regenerateInteractionReport('test-key', 'claude-sonnet-4-5')
 
-    expect(setMock).toHaveBeenCalledTimes(1)
-    expect(setMock).toHaveBeenCalledWith(
+    expect(setMock).toHaveBeenCalledTimes(2)
+    expect(setMock).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({ status: 'pending' }),
+    )
+    expect(setMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        status: 'pending',
+        findings: [],
+        generatedFor: ['ibuprofen'],
+      }),
     )
   })
 })
