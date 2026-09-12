@@ -13,6 +13,7 @@ const REPORT_DOC_PATH = 'interactionReports/current'
 type ReportStatus = 'pending' | 'ready' | 'error'
 
 interface StoredInteractionReport {
+  status?: ReportStatus
   findings?: Finding[]
   generatedFor?: string[]
   inputFingerprint?: string
@@ -60,6 +61,12 @@ function readStoredReport(data: unknown): StoredInteractionReport | undefined {
 
   const report = data as StoredInteractionReport
   return {
+    status:
+      report.status === 'pending' ||
+      report.status === 'ready' ||
+      report.status === 'error'
+        ? report.status
+        : undefined,
     findings: Array.isArray(report.findings) ? report.findings : undefined,
     generatedFor: Array.isArray(report.generatedFor)
       ? report.generatedFor
@@ -134,6 +141,29 @@ async function loadReportInputs(db: ReturnType<typeof getFirestore>) {
   }
 }
 
+async function writeReadyReportIfStillCurrent(
+  db: ReturnType<typeof getFirestore>,
+  reportRef: ReturnType<ReturnType<typeof getFirestore>['doc']>,
+  findings: Finding[],
+  inputs: ReportInputs,
+) {
+  await db.runTransaction(async (transaction) => {
+    const currentReport = readStoredReport((await transaction.get(reportRef)).data())
+
+    if (
+      currentReport?.status !== 'pending' ||
+      currentReport.inputFingerprint !== inputs.inputFingerprint
+    ) {
+      return
+    }
+
+    transaction.set(
+      reportRef,
+      buildReadyReport(findings, inputs, new Date().toISOString()),
+    )
+  })
+}
+
 /**
  * Rebuilds the Interaction Report from the current medications + patient
  * profile. Called by both Firestore triggers in index.ts — a Medication
@@ -195,9 +225,7 @@ export async function regenerateInteractionReport(
       return
     }
 
-    await reportRef.set(
-      buildReadyReport(findings, inputs, new Date().toISOString()),
-    )
+    await writeReadyReportIfStillCurrent(db, reportRef, findings, inputs)
   } catch (err) {
     await reportRef.set(
       buildPendingOrErrorReport(

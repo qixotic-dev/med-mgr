@@ -8,6 +8,8 @@ jest.mock('./claude')
 describe('regenerateInteractionReport', () => {
   const setMock = jest.fn().mockResolvedValue(undefined)
   const reportGetMock = jest.fn()
+  const transactionGetMock = jest.fn()
+  const transactionSetMock = jest.fn()
   const reportRef = { get: reportGetMock, set: setMock }
   const medicationsGetMock = jest.fn()
   const patientGetMock = jest.fn()
@@ -19,12 +21,25 @@ describe('regenerateInteractionReport', () => {
       throw new Error(`unexpected doc path ${path}`)
     }),
     collection: jest.fn(() => ({ get: medicationsGetMock })),
+    runTransaction: jest.fn(async (updateFn: (transaction: unknown) => unknown) =>
+      updateFn({
+        get: transactionGetMock,
+        set: transactionSetMock,
+      }),
+    ),
   }
 
   beforeEach(() => {
     jest.clearAllMocks()
     setMock.mockResolvedValue(undefined)
     reportGetMock.mockResolvedValue({ data: () => undefined })
+    transactionGetMock.mockResolvedValue({
+      data: () => ({
+        status: 'pending',
+        inputFingerprint:
+          '{"medications":[{"id":"aspirin","name":"Aspirin","dose":"81mg"},{"id":"ibuprofen","name":"Ibuprofen","dose":"200mg"}],"patient":null}',
+      }),
+    })
     patientGetMock.mockResolvedValue({ exists: false, updateTime: undefined })
     ;(getFirestore as jest.Mock).mockReturnValue(dbMock)
   })
@@ -82,11 +97,21 @@ describe('regenerateInteractionReport', () => {
 
     await regenerateInteractionReport('test-key', 'claude-sonnet-4-5')
 
-    expect(setMock).toHaveBeenLastCalledWith(
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'pending',
+        findings: [],
+        generatedFor: ['aspirin', 'ibuprofen'],
+        inputFingerprint: expect.any(String),
+        patientProfileUpdatedAt: null,
+      }),
+    )
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      reportRef,
       expect.objectContaining({
         status: 'ready',
-        findings,
         generatedFor: ['aspirin', 'ibuprofen'],
+        findings,
         inputFingerprint: expect.any(String),
         patientProfileUpdatedAt: null,
       }),
@@ -153,6 +178,13 @@ describe('regenerateInteractionReport', () => {
         docs: [medicationDoc('ibuprofen', 'Ibuprofen', '200mg')],
       })
     patientGetMock.mockResolvedValue({ exists: false, updateTime: undefined })
+    transactionGetMock.mockResolvedValue({
+      data: () => ({
+        status: 'pending',
+        inputFingerprint:
+          '{"medications":[{"id":"aspirin","name":"Aspirin","dose":"81mg"}],"patient":null}',
+      }),
+    })
     ;(requestFindings as jest.Mock).mockResolvedValue([
       {
         type: 'caveat',
@@ -196,6 +228,13 @@ describe('regenerateInteractionReport', () => {
         docs: [medicationDoc('ibuprofen', 'Ibuprofen', '200mg')],
       })
     patientGetMock.mockResolvedValue({ exists: false, updateTime: undefined })
+    transactionGetMock.mockResolvedValue({
+      data: () => ({
+        status: 'ready',
+        inputFingerprint:
+          '{"medications":[{"id":"ibuprofen","name":"Ibuprofen","dose":"200mg"}],"patient":null}',
+      }),
+    })
     ;(requestFindings as jest.Mock).mockResolvedValue([
       {
         type: 'caveat',
@@ -211,5 +250,6 @@ describe('regenerateInteractionReport', () => {
     expect(setMock).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'pending', generatedFor: ['aspirin'] }),
     )
+    expect(transactionSetMock).not.toHaveBeenCalled()
   })
 })
