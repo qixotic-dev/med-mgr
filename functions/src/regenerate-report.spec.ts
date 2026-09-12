@@ -21,11 +21,12 @@ describe('regenerateInteractionReport', () => {
       throw new Error(`unexpected doc path ${path}`)
     }),
     collection: jest.fn(() => ({ get: medicationsGetMock })),
-    runTransaction: jest.fn(async (updateFn: (transaction: unknown) => unknown) =>
-      updateFn({
-        get: transactionGetMock,
-        set: transactionSetMock,
-      }),
+    runTransaction: jest.fn(
+      async (updateFn: (transaction: unknown) => unknown) =>
+        updateFn({
+          get: transactionGetMock,
+          set: transactionSetMock,
+        }),
     ),
   }
 

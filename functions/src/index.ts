@@ -56,7 +56,10 @@ export const regenerateInteractionReportOnDemand = onCall(
       email.toLowerCase() !== configuredOwnerEmail ||
       !emailVerified
     ) {
-      throw new HttpsError('permission-denied', 'Only the owner can regenerate reports')
+      throw new HttpsError(
+        'permission-denied',
+        'Only the owner can regenerate reports',
+      )
     }
 
     await regenerateInteractionReport(

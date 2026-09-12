@@ -266,7 +266,8 @@ export class InteractionsComponent {
       }
 
       const missingReport = report === undefined
-      const missingFingerprint = !missingReport && !reportInputFingerprint(report)
+      const missingFingerprint =
+        !missingReport && !reportInputFingerprint(report)
       if (!missingReport && !missingFingerprint) {
         return
       }
@@ -277,7 +278,9 @@ export class InteractionsComponent {
       }
 
       this.lastOnDemandRequestKey = requestKey
-      void this.interactionReportService.regenerateOnDemand().catch(() => undefined)
+      void this.interactionReportService
+        .regenerateOnDemand()
+        .catch(() => undefined)
     })
   }
 

@@ -123,7 +123,11 @@ describe('isReportStale', () => {
     )
 
     expect(
-      isReportStale(reportWith(['ibuprofen', 'aspirin']), editedMedications, patient),
+      isReportStale(
+        reportWith(['ibuprofen', 'aspirin']),
+        editedMedications,
+        patient,
+      ),
     ).toBe(true)
   })
 

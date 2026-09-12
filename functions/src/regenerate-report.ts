@@ -148,7 +148,9 @@ async function writeReadyReportIfStillCurrent(
   inputs: ReportInputs,
 ) {
   await db.runTransaction(async (transaction) => {
-    const currentReport = readStoredReport((await transaction.get(reportRef)).data())
+    const currentReport = readStoredReport(
+      (await transaction.get(reportRef)).data(),
+    )
 
     if (
       currentReport?.status !== 'pending' ||
@@ -198,7 +200,9 @@ export async function regenerateInteractionReport(
     )
 
     if (inputs.medications.length === 0) {
-      await reportRef.set(buildReadyReport([], inputs, new Date().toISOString()))
+      await reportRef.set(
+        buildReadyReport([], inputs, new Date().toISOString()),
+      )
       return
     }
 
