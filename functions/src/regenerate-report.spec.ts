@@ -119,6 +119,35 @@ describe('regenerateInteractionReport', () => {
     )
   })
 
+  it('includes clinicalName in the report fingerprint', async () => {
+    medicationsGetMock.mockResolvedValue({
+      docs: [
+        {
+          id: 'aspirin',
+          get: (field: string) =>
+            (
+              {
+                commonName: 'Aspirin',
+                clinicalName: 'Acetylsalicylic acid',
+                dose: '81mg',
+              } as Record<string, string>
+            )[field],
+        },
+      ],
+    })
+    patientGetMock.mockResolvedValue({ exists: false, updateTime: undefined })
+    ;(requestFindings as jest.Mock).mockResolvedValue([])
+
+    await regenerateInteractionReport('test-key', 'claude-sonnet-4-5')
+
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputFingerprint:
+          '{"medications":[{"id":"aspirin","commonName":"Aspirin","clinicalName":"Acetylsalicylic acid","dose":"81mg"}],"patient":null}',
+      }),
+    )
+  })
+
   it('writes an error status without touching prior findings when the Claude call fails', async () => {
     reportGetMock.mockResolvedValue({
       data: () => ({

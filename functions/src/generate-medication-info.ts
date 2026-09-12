@@ -48,6 +48,25 @@ export interface MedicationInfoInput {
   dose: string
 }
 
+interface MedicationGenerationState extends MedicationInfoInput {
+  infoStatus?: 'pending' | 'ready' | 'error'
+}
+
+function readMedicationGenerationState(
+  snapshot: FirebaseFirestore.DocumentSnapshot,
+): MedicationGenerationState {
+  return {
+    commonName: snapshot.get('commonName') as string,
+    clinicalName: snapshot.get('clinicalName') as string | undefined,
+    dose: snapshot.get('dose') as string,
+    infoStatus: snapshot.get('infoStatus') as
+      | 'pending'
+      | 'ready'
+      | 'error'
+      | undefined,
+  }
+}
+
 const SYSTEM_PROMPT = `You provide standalone educational information about a single medication for the person taking it. This is an educational aid, not medical advice — hedge appropriately; the person should confirm anything important with their pharmacist or doctor.
 
 Given a medication's common name, optional clinical/generic name, and dose, produce:
@@ -107,16 +126,30 @@ export async function regenerateMedicationInfo(
       return // deleted before generation ran
     }
 
-    const info = await generateMedicationInfo(apiKey, model, {
-      commonName: snapshot.get('commonName') as string,
-      clinicalName: snapshot.get('clinicalName') as string | undefined,
-      dose: snapshot.get('dose') as string,
-    })
-    await ref.update({
-      purpose: info.purpose,
-      instructions: info.instructions,
-      infoStatus: 'ready',
-      infoError: FieldValue.delete(),
+    const initialState = readMedicationGenerationState(snapshot)
+    const info = await generateMedicationInfo(apiKey, model, initialState)
+    await getFirestore().runTransaction(async (transaction) => {
+      const currentSnapshot = await transaction.get(ref)
+      if (!currentSnapshot.exists) {
+        return
+      }
+
+      const currentState = readMedicationGenerationState(currentSnapshot)
+      if (
+        currentState.commonName !== initialState.commonName ||
+        currentState.clinicalName !== initialState.clinicalName ||
+        currentState.dose !== initialState.dose ||
+        currentState.infoStatus !== initialState.infoStatus
+      ) {
+        return
+      }
+
+      transaction.update(ref, {
+        purpose: info.purpose,
+        instructions: info.instructions,
+        infoStatus: 'ready',
+        infoError: FieldValue.delete(),
+      })
     })
   } catch (err) {
     // Best-effort: if the doc was deleted mid-flight (e.g. the user deleted

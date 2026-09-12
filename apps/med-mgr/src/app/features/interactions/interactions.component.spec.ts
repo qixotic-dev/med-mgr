@@ -131,6 +131,22 @@ describe('isReportStale', () => {
     ).toBe(true)
   })
 
+  it('is true when only a clinical name changes', () => {
+    const editedMedications = medications.map((medication) =>
+      medication.id === 'aspirin'
+        ? { ...medication, clinicalName: 'Acetylsalicylic acid' }
+        : medication,
+    )
+
+    expect(
+      isReportStale(
+        reportWith(['ibuprofen', 'aspirin']),
+        editedMedications,
+        patient,
+      ),
+    ).toBe(true)
+  })
+
   it('is true when the patient profile changes', () => {
     expect(
       isReportStale(reportWith(['ibuprofen', 'aspirin']), medications, {

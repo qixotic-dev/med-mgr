@@ -48,7 +48,12 @@ function buildReportInputFingerprint(
 ): string {
   return JSON.stringify({
     medications: [...medications]
-      .map(({ id, commonName, dose }) => ({ id, commonName, dose }))
+      .map(({ id, commonName, clinicalName, dose }) => ({
+        id,
+        commonName,
+        clinicalName,
+        dose,
+      }))
       .sort((left, right) => left.id.localeCompare(right.id)),
     patient: normalizePatient(patient),
   })

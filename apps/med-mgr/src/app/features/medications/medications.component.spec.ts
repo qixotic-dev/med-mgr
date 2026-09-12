@@ -239,6 +239,73 @@ describe('MedicationsComponent', () => {
       )
     })
 
+    it('leaves error status alone when only a non-info field changes', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.infoStatus = 'error'
+      component.draft.infoError = 'boom'
+      component.draft.dose = '162mg'
+
+      await component.save()
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        'aspirin',
+        expect.objectContaining({
+          dose: '162mg',
+          infoStatus: 'error',
+          infoError: 'boom',
+        }),
+      )
+    })
+
+    it('unsets infoStatus when a purpose/instructions edit leaves either blank', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.purpose = 'Pain relief'
+      component.draft.instructions = 'Take with food'
+      component.draft.infoStatus = 'ready'
+      component.draft.instructions = ''
+
+      await component.save()
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        'aspirin',
+        expect.objectContaining({
+          purpose: 'Pain relief',
+          instructions: '',
+          infoStatus: undefined,
+        }),
+      )
+    })
+
+    it('omits generator-owned fields while pending and saving only core edits', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.infoStatus = 'pending'
+      component.draft.dose = '162mg'
+
+      await component.save()
+
+      expect(updateSpy).toHaveBeenCalledWith('aspirin', {
+        commonName: 'Aspirin',
+        dose: '162mg',
+        category: 'Heart',
+        intervalDays: 90,
+      })
+    })
+
     it('slugifies the name and calls create() for a new medication', async () => {
       const fixture = setup()
       const component = fixture.componentInstance
@@ -668,6 +735,20 @@ describe('MedicationsComponent', () => {
     it('does nothing when nothing is selected', async () => {
       const fixture = setup()
       await fixture.componentInstance.regenerateInfo()
+      expect(regenerateInfoOnDemandSpy).not.toHaveBeenCalled()
+    })
+
+    it('does nothing while generation is already pending on the medication', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.infoStatus = 'pending'
+
+      await component.regenerateInfo()
+
       expect(regenerateInfoOnDemandSpy).not.toHaveBeenCalled()
     })
   })

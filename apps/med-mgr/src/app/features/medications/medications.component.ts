@@ -48,6 +48,21 @@ function emptyMedication(): Omit<Medication, 'id'> {
   return { commonName: '', dose: '', category: '', intervalDays: 0 }
 }
 
+function medicationCoreFields(
+  medication: Omit<Medication, 'id'>,
+): Pick<
+  Medication,
+  'commonName' | 'clinicalName' | 'dose' | 'category' | 'intervalDays'
+> {
+  return {
+    commonName: medication.commonName,
+    clinicalName: medication.clinicalName,
+    dose: medication.dose,
+    category: medication.category,
+    intervalDays: medication.intervalDays,
+  }
+}
+
 /** Slugifies a name into a Firestore-safe id matching the seed data's
  * convention (e.g. 'aspirin') — see MedicationService.create()'s doc
  * comment. */
@@ -269,6 +284,10 @@ export class MedicationsComponent {
 
     const id = this.selectedId()
     if (id) {
+      const infoChanged =
+        !!this.draftBaseline &&
+        (draft.purpose !== this.draftBaseline.purpose ||
+          draft.instructions !== this.draftBaseline.instructions)
       // A hand-edit that fills in both purpose and instructions clears any
       // stale pending/error/unset infoStatus immediately, regardless of how
       // it got that way -- the user just confirmed the content is good. A
@@ -280,14 +299,18 @@ export class MedicationsComponent {
       // `draftBaseline` (set to that copy once the write settles) would
       // permanently disagree with the live `draft` object on this field,
       // and the reconcile effect above would never fire again.
-      draft.infoStatus =
-        draft.purpose?.trim() && draft.instructions?.trim()
-          ? 'ready'
-          : draft.infoStatus
-      if (draft.infoStatus === 'ready') {
+      if (infoChanged) {
+        draft.infoStatus =
+          draft.purpose?.trim() && draft.instructions?.trim()
+            ? 'ready'
+            : undefined
+      }
+      if (infoChanged && draft.infoStatus === 'ready') {
         draft.infoError = undefined
       }
-      const submitted = { ...draft }
+      const nextBaseline = { ...draft }
+      const submitted =
+        draft.infoStatus === 'pending' ? medicationCoreFields(draft) : nextBaseline
       // TODO: if update() rejects (transient network/Firestore error), this
       // returns without setting `error`, so the form gives no feedback.
       // Catch the failure and surface a retryable message.
@@ -306,7 +329,7 @@ export class MedicationsComponent {
       // object identity to also cover that case.
       if (this.draft === draft && this.selectedId() === id) {
         this.isNewCategory = false
-        this.draftBaseline = submitted
+        this.draftBaseline = nextBaseline
       }
       return
     }
@@ -394,7 +417,7 @@ export class MedicationsComponent {
    * arrives here via the normal medications() snapshot + reconcile effect. */
   async regenerateInfo(): Promise<void> {
     const id = this.selectedId()
-    if (!id || this.isRegenerating()) {
+    if (!id || this.isRegenerating() || this.draft?.infoStatus === 'pending') {
       return
     }
     this.isRegenerating.set(true)

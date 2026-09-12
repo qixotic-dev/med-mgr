@@ -114,18 +114,35 @@ describe('regenerateMedicationInfo', () => {
   const updateMock = jest.fn().mockResolvedValue(undefined)
   const getMock = jest.fn()
   const docRef = { get: getMock, update: updateMock }
+  const transactionGetMock = jest.fn()
+  const transactionUpdateMock = jest.fn()
   const dbMock = {
     collection: jest.fn(() => ({ doc: jest.fn(() => docRef) })),
+    runTransaction: jest.fn(
+      async (updateFn: (transaction: unknown) => unknown) =>
+        updateFn({
+          get: transactionGetMock,
+          update: transactionUpdateMock,
+        }),
+    ),
   }
 
   beforeEach(() => {
     jest.clearAllMocks()
     updateMock.mockResolvedValue(undefined)
+    transactionUpdateMock.mockResolvedValue(undefined)
     ;(getFirestore as jest.Mock).mockReturnValue(dbMock)
   })
 
   it('writes purpose/instructions/infoStatus back on success', async () => {
     getMock.mockResolvedValue({
+      exists: true,
+      get: (field: string) =>
+        (({ commonName: 'Aspirin', dose: '81mg' }) as Record<string, string>)[
+          field
+        ],
+    })
+    transactionGetMock.mockResolvedValue({
       exists: true,
       get: (field: string) =>
         (({ commonName: 'Aspirin', dose: '81mg' }) as Record<string, string>)[
@@ -138,13 +155,15 @@ describe('regenerateMedicationInfo', () => {
 
     await regenerateMedicationInfo('key', 'claude-sonnet-4-5', 'aspirin')
 
-    expect(updateMock).toHaveBeenCalledWith(
+    expect(transactionUpdateMock).toHaveBeenCalledWith(
+      docRef,
       expect.objectContaining({
         purpose: 'pain relief',
         instructions: 'take with food',
         infoStatus: 'ready',
       }),
     )
+    expect(updateMock).not.toHaveBeenCalled()
   })
 
   it('writes an error status when the Claude call fails', async () => {
@@ -159,6 +178,41 @@ describe('regenerateMedicationInfo', () => {
     expect(updateMock).toHaveBeenCalledWith(
       expect.objectContaining({ infoStatus: 'error', infoError: 'boom' }),
     )
+  })
+
+  it('does not overwrite newer medication data when the source fields changed mid-flight', async () => {
+    getMock.mockResolvedValue({
+      exists: true,
+      get: (field: string) =>
+        (
+          {
+            commonName: 'Aspirin',
+            clinicalName: 'Acetylsalicylic acid',
+            dose: '81mg',
+            infoStatus: 'pending',
+          } as Record<string, string>
+        )[field],
+    })
+    transactionGetMock.mockResolvedValue({
+      exists: true,
+      get: (field: string) =>
+        (
+          {
+            commonName: 'Aspirin',
+            clinicalName: 'Acetylsalicylic acid',
+            dose: '325mg',
+            infoStatus: 'pending',
+          } as Record<string, string>
+        )[field],
+    })
+    parseMock.mockResolvedValue({
+      parsed_output: { purpose: 'pain relief', instructions: 'take with food' },
+    })
+
+    await regenerateMedicationInfo('key', 'claude-sonnet-4-5', 'aspirin')
+
+    expect(transactionUpdateMock).not.toHaveBeenCalled()
+    expect(updateMock).not.toHaveBeenCalled()
   })
 
   it('does nothing when the medication was deleted before generation ran', async () => {
