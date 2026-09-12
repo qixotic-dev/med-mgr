@@ -11,11 +11,28 @@ in the app.
 ## Language
 
 **Medication**:
-The drug itself: name, dose, category, and how often it needs reordering
-(`intervalDays`). Not a dose-taken record — that's `day-mgr`'s concept of
-the same word, a different app, deliberately not reconciled here.
+The drug itself: a common name (`commonName`, required) and an optional
+clinical/generic name (`clinicalName`), dose, category, and how often it
+needs reordering (`intervalDays`). Not a dose-taken record — that's
+`day-mgr`'s concept of the same word, a different app, deliberately not
+reconciled here.
 _Avoid_: Drug (fine as plain English, but use "Medication" as the model
 term), Order (that's Prescription)
+
+**Purpose / Instructions**:
+Per-Medication, AI-generated-once fields: what the drug is for, and general
+guidance on how to take it (timing, food). Generated automatically on
+Medication creation, then hand-editable (a plain textarea, like
+Prescription's `howToOrder`/`scheduleNotes`), with a manual "Regenerate"
+button for backfilling or refreshing. `infoStatus` (`pending`/`ready`/
+`error`, mirrors Interaction Report's `status`) plus `infoError` make
+"generating" and "failed" visible instead of blank fields; unset means never
+generated (e.g. a pre-migration record). Deliberately scoped to standalone
+drug facts only — no drug-drug conflict mentions and no Patient-specific
+content, both of which stay exclusively in the Interaction Report so they
+never go stale. A Medication's detail pane shows the existing Interaction
+Report's Findings read-only (filtered to that Medication) to cover
+"conflicts with another medication" without duplicating that data.
 
 **Prescription**:
 The reorder logistics for one Medication: which pharmacy, which prescriber,
@@ -66,3 +83,10 @@ How significant a Finding is: minor / moderate / major.
   Interaction Report needed the app's first backend at all — an LLM API
   key can't safely live in a public static bundle. Clears the same ADR bar
   as 0001.
+- Dropping the `caveat` Finding kind (now largely redundant with
+  Purpose/Instructions — both describe "a general caution about one
+  medication on its own... take with food") is a deliberate fast-follow,
+  not done alongside adding Purpose/Instructions: it touches a working
+  Cloud Function's Zod schema, prompt, the `Finding` union, and multiple
+  spec files, and clears the same ADR bar as 0001/0002 (hard to reverse,
+  surprising, a real trade-off) — do it as its own task with its own ADR.

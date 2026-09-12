@@ -10,7 +10,7 @@
             [class.active]="item.medication.id === selectedId()"
             (click)="select(item.medication.id)"
           >
-            <span class="med-item-name">{{ item.medication.name }}</span>
+            <span class="med-item-name">{{ item.medication.commonName }}</span>
             <span class="med-item-dose">{{ item.medication.dose }}</span>
             <app-status-badge
               [nextOrderDate]="item.prescription.nextOrderDate"
@@ -25,7 +25,7 @@
     @if (selectedMedication(); as medication) {
       @if (draft; as draft) {
         <header class="detail-header">
-          <h2>{{ medication.name }}</h2>
+          <h2>{{ medication.commonName }}</h2>
           <span class="dose">{{ medication.dose }}</span>
         </header>
 

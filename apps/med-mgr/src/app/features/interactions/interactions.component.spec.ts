@@ -61,14 +61,14 @@ describe('isReportStale', () => {
   const medications: Medication[] = [
     {
       id: 'aspirin',
-      name: 'Aspirin',
+      commonName: 'Aspirin',
       dose: '81mg',
       category: 'Heart',
       intervalDays: 30,
     },
     {
       id: 'ibuprofen',
-      name: 'Ibuprofen',
+      commonName: 'Ibuprofen',
       dose: '200mg',
       category: 'Pain',
       intervalDays: 30,
@@ -145,14 +145,14 @@ describe('groupFindings', () => {
   const medications: Medication[] = [
     {
       id: 'aspirin',
-      name: 'Aspirin',
+      commonName: 'Aspirin',
       dose: '81mg',
       category: 'Heart',
       intervalDays: 30,
     },
     {
       id: 'ibuprofen',
-      name: 'Ibuprofen',
+      commonName: 'Ibuprofen',
       dose: '200mg',
       category: 'Pain',
       intervalDays: 30,

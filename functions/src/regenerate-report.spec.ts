@@ -38,18 +38,18 @@ describe('regenerateInteractionReport', () => {
       data: () => ({
         status: 'pending',
         inputFingerprint:
-          '{"medications":[{"id":"aspirin","name":"Aspirin","dose":"81mg"},{"id":"ibuprofen","name":"Ibuprofen","dose":"200mg"}],"patient":null}',
+          '{"medications":[{"id":"aspirin","commonName":"Aspirin","dose":"81mg"},{"id":"ibuprofen","commonName":"Ibuprofen","dose":"200mg"}],"patient":null}',
       }),
     })
     patientGetMock.mockResolvedValue({ exists: false, updateTime: undefined })
     ;(getFirestore as jest.Mock).mockReturnValue(dbMock)
   })
 
-  function medicationDoc(id: string, name: string, dose: string) {
+  function medicationDoc(id: string, commonName: string, dose: string) {
     return {
       id,
       get: (field: string) =>
-        (({ name, dose }) as Record<string, string>)[field],
+        (({ commonName, dose }) as Record<string, string>)[field],
     }
   }
 
@@ -157,7 +157,7 @@ describe('regenerateInteractionReport', () => {
         ],
         generatedFor: ['aspirin'],
         inputFingerprint:
-          '{"medications":[{"id":"aspirin","name":"Aspirin","dose":"81mg"}],"patient":null}',
+          '{"medications":[{"id":"aspirin","commonName":"Aspirin","dose":"81mg"}],"patient":null}',
       }),
     )
   })
@@ -168,7 +168,7 @@ describe('regenerateInteractionReport', () => {
       .mockResolvedValueOnce({
         data: () => ({
           inputFingerprint:
-            '{"medications":[{"id":"aspirin","name":"Aspirin","dose":"81mg"}],"patient":null}',
+            '{"medications":[{"id":"aspirin","commonName":"Aspirin","dose":"81mg"}],"patient":null}',
         }),
       })
     medicationsGetMock
@@ -183,7 +183,7 @@ describe('regenerateInteractionReport', () => {
       data: () => ({
         status: 'pending',
         inputFingerprint:
-          '{"medications":[{"id":"aspirin","name":"Aspirin","dose":"81mg"}],"patient":null}',
+          '{"medications":[{"id":"aspirin","commonName":"Aspirin","dose":"81mg"}],"patient":null}',
       }),
     })
     ;(requestFindings as jest.Mock).mockResolvedValue([
@@ -218,7 +218,7 @@ describe('regenerateInteractionReport', () => {
       .mockResolvedValueOnce({
         data: () => ({
           inputFingerprint:
-            '{"medications":[{"id":"ibuprofen","name":"Ibuprofen","dose":"200mg"}],"patient":null}',
+            '{"medications":[{"id":"ibuprofen","commonName":"Ibuprofen","dose":"200mg"}],"patient":null}',
         }),
       })
     medicationsGetMock
@@ -233,7 +233,7 @@ describe('regenerateInteractionReport', () => {
       data: () => ({
         status: 'ready',
         inputFingerprint:
-          '{"medications":[{"id":"ibuprofen","name":"Ibuprofen","dose":"200mg"}],"patient":null}',
+          '{"medications":[{"id":"ibuprofen","commonName":"Ibuprofen","dose":"200mg"}],"patient":null}',
       }),
     })
     ;(requestFindings as jest.Mock).mockResolvedValue([
@@ -265,7 +265,7 @@ describe('regenerateInteractionReport', () => {
       data: () => ({
         status: 'pending',
         inputFingerprint:
-          '{"medications":[{"id":"acetaminophen","name":"Acetaminophen","dose":"500mg"}],"patient":null}',
+          '{"medications":[{"id":"acetaminophen","commonName":"Acetaminophen","dose":"500mg"}],"patient":null}',
       }),
     })
     const findings = [

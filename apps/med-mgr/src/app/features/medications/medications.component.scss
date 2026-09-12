@@ -141,3 +141,95 @@
   text-align: center;
   color: var(--muted);
 }
+
+// Purpose/Instructions + disclaimer + Regenerate -- see
+// InteractionsComponent's .disclaimer/.status-note for the twin styles this
+// mirrors (component-scoped, so duplicated here rather than shared).
+.medication-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.disclaimer {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.status-note {
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  margin: 0;
+
+  &.pending {
+    background: var(--border);
+    color: var(--muted);
+  }
+
+  &.error {
+    background: var(--danger);
+    color: var(--danger-tint);
+  }
+}
+
+.regenerate-button {
+  align-self: flex-start;
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.6rem 1.5rem;
+
+  &:hover {
+    background: var(--primary);
+    color: var(--surface);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+// Read-only Findings section -- see InteractionsComponent's identical
+// .finding-group/.finding/.finding-detail (component-scoped, so duplicated
+// here too; .finding-medications is omitted, unused here since the
+// medication is already the page's selection).
+.medication-findings {
+  max-width: 32rem;
+  margin-top: 2rem;
+
+  h3 {
+    margin: 0 0 1rem;
+  }
+}
+
+.finding-group {
+  margin-bottom: 1.5rem;
+
+  h4 {
+    margin: 0 0 0.5rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+}
+
+.finding {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.finding-detail {
+  margin: 0;
+  color: var(--muted);
+}

@@ -102,7 +102,7 @@ export function buildReportInputFingerprint(
 ): string {
   return JSON.stringify({
     medications: [...medications]
-      .map(({ id, name, dose }) => ({ id, name, dose }))
+      .map(({ id, commonName, dose }) => ({ id, commonName, dose }))
       .sort((left, right) => left.id.localeCompare(right.id)),
     patient: normalizePatient(patient),
   })
@@ -167,7 +167,7 @@ export function groupFindings(
   medications: Medication[],
 ): FindingGroup[] {
   const nameFor = (id: string) =>
-    medications.find((m) => m.id === id)?.name ?? id
+    medications.find((m) => m.id === id)?.commonName ?? id
   return FINDING_TYPE_ORDER.map((type) => ({
     type,
     label: FINDING_TYPE_LABELS[type],

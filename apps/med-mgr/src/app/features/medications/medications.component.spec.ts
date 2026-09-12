@@ -1,10 +1,13 @@
 import { TestBed } from '@angular/core/testing'
 import { BehaviorSubject, Observable, Subject } from 'rxjs'
 import { MedicationService } from '../../services/medication.service'
+import { InteractionReportService } from '../../services/interaction-report.service'
 import type { Medication } from '../../models/medication.model'
+import type { InteractionReport } from '../../models/interaction-report.model'
 import {
   categoryOptionValue,
   groupByCategory,
+  isSameMedicationData,
   MedicationsComponent,
   NEW_CATEGORY_OPTION,
 } from './medications.component'
@@ -12,14 +15,14 @@ import {
 describe('MedicationsComponent', () => {
   const aspirin: Medication = {
     id: 'aspirin',
-    name: 'Aspirin',
+    commonName: 'Aspirin',
     dose: '81mg',
     category: 'Heart',
     intervalDays: 90,
   }
   const ibuprofen: Medication = {
     id: 'ibuprofen',
-    name: 'Ibuprofen',
+    commonName: 'Ibuprofen',
     dose: '200mg',
     category: 'Pain',
     intervalDays: 30,
@@ -28,16 +31,21 @@ describe('MedicationsComponent', () => {
   let createSpy: jest.Mock
   let updateSpy: jest.Mock
   let deleteSpy: jest.Mock
+  let regenerateInfoOnDemandSpy: jest.Mock
 
   function setup(
     source: Observable<Medication[]> = new BehaviorSubject([
       aspirin,
       ibuprofen,
     ]),
+    report$: Observable<InteractionReport | undefined> = new BehaviorSubject<
+      InteractionReport | undefined
+    >(undefined),
   ) {
     createSpy = jest.fn().mockResolvedValue(undefined)
     updateSpy = jest.fn().mockResolvedValue(undefined)
     deleteSpy = jest.fn().mockResolvedValue(undefined)
+    regenerateInfoOnDemandSpy = jest.fn().mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       imports: [MedicationsComponent],
       providers: [
@@ -48,7 +56,12 @@ describe('MedicationsComponent', () => {
             create: createSpy,
             update: updateSpy,
             delete: deleteSpy,
+            regenerateInfoOnDemand: regenerateInfoOnDemandSpy,
           },
+        },
+        {
+          provide: InteractionReportService,
+          useValue: { report$ },
         },
       ],
     })
@@ -63,6 +76,29 @@ describe('MedicationsComponent', () => {
         { category: 'Heart', items: [aspirin] },
         { category: 'Pain', items: [ibuprofen] },
       ])
+    })
+  })
+
+  describe('isSameMedicationData', () => {
+    const base: Omit<Medication, 'id'> = {
+      commonName: 'Aspirin',
+      dose: '81mg',
+      category: 'Heart',
+      intervalDays: 90,
+    }
+
+    it('is true for identical data', () => {
+      expect(isSameMedicationData(base, { ...base })).toBe(true)
+    })
+
+    it('is false when a generated field differs', () => {
+      expect(
+        isSameMedicationData(base, { ...base, purpose: 'Pain relief' }),
+      ).toBe(false)
+    })
+
+    it('is false when a core field differs', () => {
+      expect(isSameMedicationData(base, { ...base, dose: '325mg' })).toBe(false)
     })
   })
 
@@ -86,7 +122,7 @@ describe('MedicationsComponent', () => {
       if (!component.draft) {
         throw new Error('expected startAdd() to set a draft')
       }
-      component.draft.name = 'New Med'
+      component.draft.commonName = 'New Med'
       component.draft.dose = '5mg'
       component.draft.category = 'Heart'
       component.draft.intervalDays = 0
@@ -109,7 +145,7 @@ describe('MedicationsComponent', () => {
       if (!component.draft) {
         throw new Error('expected startAdd() to set a draft')
       }
-      component.draft.name = 'New Med'
+      component.draft.commonName = 'New Med'
       component.draft.dose = '5mg'
       component.draft.category = 'Heart'
       component.draft.intervalDays = 30
@@ -123,7 +159,7 @@ describe('MedicationsComponent', () => {
       const component = fixture.componentInstance
       component.select('ibuprofen')
       expect(component.draft).toEqual({
-        name: 'Ibuprofen',
+        commonName: 'Ibuprofen',
         dose: '200mg',
         category: 'Pain',
         intervalDays: 30,
@@ -136,7 +172,7 @@ describe('MedicationsComponent', () => {
       component.select('aspirin')
       component.startAdd()
       expect(component.selectedId()).toBeNull()
-      expect(component.draft?.name).toBe('')
+      expect(component.draft?.commonName).toBe('')
     })
   })
 
@@ -153,12 +189,54 @@ describe('MedicationsComponent', () => {
       await component.save()
 
       expect(updateSpy).toHaveBeenCalledWith('aspirin', {
-        name: 'Aspirin',
+        commonName: 'Aspirin',
         dose: '162mg',
         category: 'Heart',
         intervalDays: 90,
       })
       expect(createSpy).not.toHaveBeenCalled()
+    })
+
+    it('sets infoStatus to ready when a hand-edit fills in both purpose and instructions', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.infoStatus = 'error'
+      component.draft.infoError = 'boom'
+      component.draft.purpose = 'Pain relief'
+      component.draft.instructions = 'Take with food'
+
+      await component.save()
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        'aspirin',
+        expect.objectContaining({
+          purpose: 'Pain relief',
+          instructions: 'Take with food',
+          infoStatus: 'ready',
+          infoError: undefined,
+        }),
+      )
+    })
+
+    it('leaves infoStatus alone when purpose/instructions are still blank', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.dose = '162mg'
+
+      await component.save()
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        'aspirin',
+        expect.not.objectContaining({ infoStatus: expect.anything() }),
+      )
     })
 
     it('slugifies the name and calls create() for a new medication', async () => {
@@ -168,7 +246,7 @@ describe('MedicationsComponent', () => {
       if (!component.draft) {
         throw new Error('expected startAdd() to set a draft')
       }
-      component.draft.name = 'Vitamin D3'
+      component.draft.commonName = 'Vitamin D3'
       component.draft.dose = '2000IU'
       component.draft.category = 'Supplements'
       component.draft.intervalDays = 60
@@ -176,10 +254,11 @@ describe('MedicationsComponent', () => {
       await component.save()
 
       expect(createSpy).toHaveBeenCalledWith('vitamin-d3', {
-        name: 'Vitamin D3',
+        commonName: 'Vitamin D3',
         dose: '2000IU',
         category: 'Supplements',
         intervalDays: 60,
+        infoStatus: 'pending',
       })
     })
 
@@ -191,7 +270,7 @@ describe('MedicationsComponent', () => {
         throw new Error('expected startAdd() to set a draft')
       }
       // Slugifies to 'aspirin', which already exists.
-      component.draft.name = 'Aspirin'
+      component.draft.commonName = 'Aspirin'
       component.draft.dose = '81mg'
       component.draft.category = 'Heart'
       component.draft.intervalDays = 90
@@ -209,7 +288,7 @@ describe('MedicationsComponent', () => {
       if (!component.draft) {
         throw new Error('expected startAdd() to set a draft')
       }
-      component.draft.name = '***'
+      component.draft.commonName = '***'
       component.draft.dose = '81mg'
       component.draft.category = 'Heart'
       component.draft.intervalDays = 90
@@ -231,7 +310,7 @@ describe('MedicationsComponent', () => {
       if (!component.draft) {
         throw new Error('expected startAdd() to set a draft')
       }
-      component.draft.name = 'Vitamin D3'
+      component.draft.commonName = 'Vitamin D3'
       component.draft.dose = '2000IU'
       component.draft.category = 'Supplements'
       component.draft.intervalDays = 60
@@ -302,7 +381,7 @@ describe('MedicationsComponent', () => {
       if (!component.draft) {
         throw new Error('expected startAdd() to set a draft')
       }
-      component.draft.name = 'Vitamin D3'
+      component.draft.commonName = 'Vitamin D3'
       component.draft.dose = '2000IU'
       component.draft.category = 'Supplements'
       component.draft.intervalDays = 60
@@ -406,6 +485,245 @@ describe('MedicationsComponent', () => {
       await deletePromise
 
       expect(component.selectedId()).toBe('ibuprofen')
+    })
+  })
+
+  describe('reconcile effect', () => {
+    it('adopts freshly generated purpose/instructions into an untouched draft', async () => {
+      const medications$ = new BehaviorSubject<Medication[]>([
+        aspirin,
+        ibuprofen,
+      ])
+      const fixture = setup(medications$)
+      const component = fixture.componentInstance
+      component.select('aspirin')
+
+      medications$.next([
+        {
+          ...aspirin,
+          purpose: 'Pain relief',
+          instructions: 'Take with food',
+          infoStatus: 'ready',
+        },
+        ibuprofen,
+      ])
+      await fixture.whenStable()
+
+      expect(component.draft?.purpose).toBe('Pain relief')
+      expect(component.draft?.instructions).toBe('Take with food')
+      expect(component.draft?.infoStatus).toBe('ready')
+    })
+
+    it('does not clobber an in-progress edit when a later snapshot arrives', async () => {
+      const medications$ = new BehaviorSubject<Medication[]>([
+        aspirin,
+        ibuprofen,
+      ])
+      const fixture = setup(medications$)
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      // Mutate the field in place, matching what [(ngModel)] actually does.
+      component.draft.purpose = 'User typed this'
+
+      medications$.next([
+        { ...aspirin, purpose: 'Generated purpose', infoStatus: 'ready' },
+        ibuprofen,
+      ])
+      await fixture.whenStable()
+
+      expect(component.draft?.purpose).toBe('User typed this')
+    })
+
+    it('leaves the draft alone once it already matches the loaded data', async () => {
+      const medications$ = new BehaviorSubject<Medication[]>([
+        aspirin,
+        ibuprofen,
+      ])
+      const fixture = setup(medications$)
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      const draftAfterSelect = component.draft
+
+      medications$.next([aspirin, ibuprofen])
+      await fixture.whenStable()
+
+      expect(component.draft).toBe(draftAfterSelect)
+    })
+
+    it("adopts the create trigger's generated info into the still-open draft once save() resolves", async () => {
+      // Regression check: save()'s create branch must refresh draftBaseline
+      // too, or this effect never fires again after the very save that made
+      // it relevant -- the sole path AI generation runs on automatically.
+      const medications$ = new BehaviorSubject<Medication[]>([
+        aspirin,
+        ibuprofen,
+      ])
+      const fixture = setup(medications$)
+      const component = fixture.componentInstance
+      component.startAdd()
+      if (!component.draft) {
+        throw new Error('expected startAdd() to set a draft')
+      }
+      component.draft.commonName = 'Vitamin D3'
+      component.draft.dose = '2000IU'
+      component.draft.category = 'Supplements'
+      component.draft.intervalDays = 60
+
+      await component.save()
+      expect(component.selectedId()).toBe('vitamin-d3')
+
+      // The create trigger finishes and writes the generated info back.
+      medications$.next([
+        aspirin,
+        ibuprofen,
+        {
+          id: 'vitamin-d3',
+          commonName: 'Vitamin D3',
+          dose: '2000IU',
+          category: 'Supplements',
+          intervalDays: 60,
+          purpose: 'Supports bone health',
+          instructions: 'Take with a meal',
+          infoStatus: 'ready',
+        },
+      ])
+      await fixture.whenStable()
+
+      expect(component.draft?.purpose).toBe('Supports bone health')
+      expect(component.draft?.infoStatus).toBe('ready')
+    })
+
+    it('adopts a later external write (e.g. Regenerate finishing) after an unrelated save()', async () => {
+      // Regression check: save()'s update branch must refresh draftBaseline
+      // too, or the reconcile effect stays permanently disabled after the
+      // first edit -- Regenerate's write-back would never appear.
+      const medications$ = new BehaviorSubject<Medication[]>([
+        aspirin,
+        ibuprofen,
+      ])
+      const fixture = setup(medications$)
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.dose = '162mg'
+
+      await component.save()
+
+      medications$.next([
+        {
+          ...aspirin,
+          dose: '162mg',
+          purpose: 'Pain relief',
+          infoStatus: 'ready',
+        },
+        ibuprofen,
+      ])
+      await fixture.whenStable()
+
+      expect(component.draft?.purpose).toBe('Pain relief')
+    })
+  })
+
+  describe('regenerateInfo', () => {
+    it('calls regenerateInfoOnDemand for the selected medication and tracks in-flight state', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      let resolveRegenerate: () => void = () => {
+        throw new Error('regenerateInfoOnDemand was not called')
+      }
+      regenerateInfoOnDemandSpy.mockReturnValue(
+        new Promise<void>((resolve) => {
+          resolveRegenerate = resolve
+        }),
+      )
+
+      const regeneratePromise = component.regenerateInfo()
+      expect(component.isRegenerating()).toBe(true)
+
+      resolveRegenerate()
+      await regeneratePromise
+
+      expect(regenerateInfoOnDemandSpy).toHaveBeenCalledWith('aspirin')
+      expect(component.isRegenerating()).toBe(false)
+    })
+
+    it('sets an error when regenerateInfoOnDemand rejects', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      regenerateInfoOnDemandSpy.mockRejectedValue(new Error('boom'))
+
+      await component.regenerateInfo()
+
+      expect(component.error()).toBeTruthy()
+      expect(component.isRegenerating()).toBe(false)
+    })
+
+    it('does nothing when nothing is selected', async () => {
+      const fixture = setup()
+      await fixture.componentInstance.regenerateInfo()
+      expect(regenerateInfoOnDemandSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('medicationFindingGroups', () => {
+    function reportWith(
+      status: InteractionReport['status'],
+      findings: InteractionReport['findings'] = [],
+    ): InteractionReport {
+      return {
+        status,
+        findings,
+        generatedFor: ['aspirin', 'ibuprofen'],
+        inputFingerprint: '',
+        patientProfileUpdatedAt: null,
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }
+    }
+
+    it('is empty when nothing is selected', () => {
+      const fixture = setup()
+      expect(fixture.componentInstance.medicationFindingGroups()).toEqual([])
+    })
+
+    it('is empty while the report is not ready', () => {
+      const report$ = new BehaviorSubject<InteractionReport | undefined>(
+        reportWith('pending'),
+      )
+      const fixture = setup(undefined, report$)
+      fixture.componentInstance.select('aspirin')
+      expect(fixture.componentInstance.medicationFindingGroups()).toEqual([])
+    })
+
+    it('shows only findings that mention the selected medication', () => {
+      const report$ = new BehaviorSubject<InteractionReport | undefined>(
+        reportWith('ready', [
+          {
+            type: 'caveat',
+            severity: 'minor',
+            medicationIds: ['aspirin'],
+            detail: 'take with food',
+          },
+          {
+            type: 'caveat',
+            severity: 'minor',
+            medicationIds: ['ibuprofen'],
+            detail: 'unrelated',
+          },
+        ]),
+      )
+      const fixture = setup(undefined, report$)
+      fixture.componentInstance.select('aspirin')
+
+      const groups = fixture.componentInstance.medicationFindingGroups()
+      expect(groups).toHaveLength(1)
+      expect(groups[0].findings[0].detail).toBe('take with food')
     })
   })
 

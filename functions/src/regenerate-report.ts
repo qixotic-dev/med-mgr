@@ -48,7 +48,7 @@ function buildReportInputFingerprint(
 ): string {
   return JSON.stringify({
     medications: [...medications]
-      .map(({ id, name, dose }) => ({ id, name, dose }))
+      .map(({ id, commonName, dose }) => ({ id, commonName, dose }))
       .sort((left, right) => left.id.localeCompare(right.id)),
     patient: normalizePatient(patient),
   })
@@ -120,7 +120,8 @@ async function loadReportInputs(db: ReturnType<typeof getFirestore>) {
   const medicationsSnapshot = await db.collection(MEDICATIONS_COLLECTION).get()
   const medications: MedicationInput[] = medicationsSnapshot.docs.map((d) => ({
     id: d.id,
-    name: d.get('name') as string,
+    commonName: d.get('commonName') as string,
+    clinicalName: d.get('clinicalName') as string | undefined,
     dose: d.get('dose') as string,
   }))
 
