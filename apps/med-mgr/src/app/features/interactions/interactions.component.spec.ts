@@ -456,5 +456,32 @@ describe('InteractionsComponent', () => {
       )
       expect(component.canSaveProfile()).toBe(false)
     })
+
+    it('ignores a second saveProfile() call while the first is still in flight', async () => {
+      const { fixture } = setup()
+      const component = fixture.componentInstance
+      let resolveSave: () => void = () => {
+        throw new Error('save() was not called')
+      }
+      savePatientSpy.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveSave = resolve
+          }),
+      )
+      component.draft.weight = '160 lbs'
+
+      const firstSave = component.saveProfile()
+      expect(component.isSavingProfile()).toBe(true)
+      expect(component.canSaveProfile()).toBe(false)
+
+      await component.saveProfile()
+      expect(savePatientSpy).toHaveBeenCalledTimes(1)
+
+      resolveSave()
+      await firstSave
+
+      expect(component.isSavingProfile()).toBe(false)
+    })
   })
 })

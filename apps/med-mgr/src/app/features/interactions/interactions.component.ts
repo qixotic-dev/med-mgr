@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   inject,
+  signal,
 } from '@angular/core'
 import { toSignal } from '@angular/core/rxjs-interop'
 import { FormsModule } from '@angular/forms'
@@ -359,6 +360,14 @@ export class InteractionsComponent {
       if (this.hydratedDraft || load === undefined) {
         return
       }
+      // TODO: the patient-editor form's inputs aren't disabled before
+      // hydration (only the Save button is, via canSaveProfile()'s
+      // hydratedDraft check), so a user who starts typing before patient$'s
+      // first emission has their edits silently discarded by the
+      // this.draft overwrite below. Flagged by Copilot's PR #19 review --
+      // narrow window (patient$ typically resolves fast), left as a known
+      // gap rather than disabling the whole form or merging edits, either
+      // of which is a bigger UX change than this task asked for.
       this.hydratedDraft = true
       this.draft = toDraft(load.patient)
       // A separate object, not the same reference as `draft` -- see
@@ -400,6 +409,15 @@ export class InteractionsComponent {
     })
   }
 
+  /** Guards saveProfile() against a second submit firing a concurrent
+   * Firestore write while the first is still in flight -- flagged as
+   * Critical by Copilot's PR #19 review: without it, two overlapping
+   * patientService.save() calls can resolve out of order, leaving
+   * draftBaseline (and so canSaveProfile()) reflecting whichever finished
+   * last rather than whichever was submitted last. Mirrors
+   * MedicationsComponent.isDeleting. */
+  readonly isSavingProfile = signal(false)
+
   /** Gates the patient-editor form's Save button. Patient has no required
    * fields (see its model), so there's no field validity to check here --
    * unlike canSave() on the other two pages. Instead mirrors the other half
@@ -408,19 +426,38 @@ export class InteractionsComponent {
    * here, requiring hydratedDraft prevents Save persisting `draft`'s
    * emptyDraft() placeholder over a real profile before patient$ has
    * emitted. Combined with a dirty check so Save is also disabled once
-   * there's nothing new to persist. */
+   * there's nothing new to persist, and isSavingProfile so it's disabled
+   * while a save is already in flight. */
   canSaveProfile(): boolean {
     return (
-      this.hydratedDraft && !isSamePatientDraft(this.draft, this.draftBaseline)
+      this.hydratedDraft &&
+      !this.isSavingProfile() &&
+      !isSamePatientDraft(this.draft, this.draftBaseline)
     )
   }
 
   async saveProfile(): Promise<void> {
-    // Snapshot before the await -- `draft`'s fields keep mutating in place
-    // via [(ngModel)] while the write is in flight, mirroring
-    // PrescriptionsComponent.save()'s `submitted` snapshot.
-    const submitted = { ...this.draft }
-    await this.patientService.save(fromDraft(submitted))
-    this.draftBaseline = submitted
+    if (this.isSavingProfile()) {
+      return
+    }
+    this.isSavingProfile.set(true)
+    try {
+      // Snapshot before the await -- `draft`'s fields keep mutating in place
+      // via [(ngModel)] while the write is in flight, mirroring
+      // PrescriptionsComponent.save()'s `submitted` snapshot.
+      const submitted = { ...this.draft }
+      await this.patientService.save(fromDraft(submitted))
+      this.draftBaseline = submitted
+    } finally {
+      this.isSavingProfile.set(false)
+    }
+    // This app runs zoneless (see app.config.ts's
+    // provideZonelessChangeDetection()). draftBaseline is a plain field
+    // mutated after an `await`, not a signal and not inside a template
+    // event handler, so nothing above would otherwise tell the OnPush view
+    // canSaveProfile() might now return a different value -- flagged by
+    // Copilot's PR #19 review. Mirrors the same nudge the hydration effect
+    // above already needs for the same reason.
+    this.changeDetectorRef.markForCheck()
   }
 }

@@ -42,7 +42,9 @@
         />
       </label>
 
-      <button type="submit" [disabled]="!canSaveProfile()">Save</button>
+      <button type="submit" [disabled]="!canSaveProfile()">
+        {{ isSavingProfile() ? 'Saving…' : 'Save' }}
+      </button>
     </form>
   </details>
 
