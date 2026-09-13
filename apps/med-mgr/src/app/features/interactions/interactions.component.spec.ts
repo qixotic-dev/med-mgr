@@ -368,7 +368,7 @@ describe('InteractionsComponent', () => {
       )
     })
 
-    it('does not clear a preselected id before this page\'s own first medications snapshot arrives', async () => {
+    it("does not clear a preselected id before this page's own first medications snapshot arrives", async () => {
       // A bare Subject never emits an initial value (unlike the
       // BehaviorSubject setup() above uses), mirroring Firestore's
       // collectionData(): medications() starts at its toSignal initialValue
