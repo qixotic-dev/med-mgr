@@ -5,7 +5,6 @@ import {
   computed,
   effect,
   inject,
-  signal,
 } from '@angular/core'
 import { toSignal } from '@angular/core/rxjs-interop'
 import { FormsModule } from '@angular/forms'
@@ -14,6 +13,7 @@ import { CalendarPickerComponent } from '../../shared/calendar-picker.component'
 import { MedicationService } from '../../services/medication.service'
 import { PrescriptionService } from '../../services/prescription.service'
 import { CalendarService } from '../../core/calendar.service'
+import { SelectedMedicationService } from '../../services/selected-medication.service'
 import type { Medication } from '../../models/medication.model'
 import type { Prescription } from '../../models/prescription.model'
 import { emptyPrescription } from '../../models/prescription.model'
@@ -58,9 +58,17 @@ export class PrescriptionsComponent {
   private readonly calendarService = inject(CalendarService)
   private readonly changeDetectorRef = inject(ChangeDetectorRef)
 
-  private readonly medications = toSignal(this.medicationService.all$, {
-    initialValue: [],
-  })
+  /** `undefined` until all$ has emitted at least once -- distinguishes "no
+   * medications yet" from "haven't heard from Firestore yet", which matters
+   * for the hydration effect below (see MedicationsComponent's identical
+   * medicationsLoaded, added for the same reason). */
+  private readonly medicationsSnapshot = toSignal(this.medicationService.all$)
+  private readonly medications = computed(
+    () => this.medicationsSnapshot() ?? [],
+  )
+  private readonly medicationsLoaded = computed(
+    () => this.medicationsSnapshot() !== undefined,
+  )
   private readonly prescriptions = toSignal(this.prescriptionService.all$, {
     initialValue: [],
   })
@@ -69,7 +77,9 @@ export class PrescriptionsComponent {
     groupByCategory(this.medications(), this.prescriptions()),
   )
 
-  readonly selectedId = signal<string | null>(null)
+  /** Shared with Medications/Interactions via SelectedMedicationService (see
+   * TODO.md #9) so the same medication stays selected across tabs. */
+  readonly selectedId = inject(SelectedMedicationService).selectedId
 
   readonly selectedMedication = computed(
     () => this.medications().find((m) => m.id === this.selectedId()) ?? null,
@@ -95,7 +105,61 @@ export class PrescriptionsComponent {
    * in-progress edit. */
   private draftBaseline: Prescription | null = null
 
+  /** Whether the one-time hydration effect below has already run. */
+  private hydratedSelection = false
+
   constructor() {
+    // Loads `draft` from a selection already made on the Medications/
+    // Interactions pages before this page was ever mounted -- selectedId is
+    // shared (see its doc comment above), but select() is otherwise only
+    // ever called from this component's own sidebar clicks, so a
+    // pre-existing selection needs this one-time hydration to actually show
+    // up in the form. Mirrors MedicationsComponent's identical effect.
+    // Waits for medicationsLoaded() so it can tell "not found yet" from
+    // "was deleted elsewhere", then never runs again.
+    effect(() => {
+      if (this.hydratedSelection || !this.medicationsLoaded()) {
+        return
+      }
+      this.hydratedSelection = true
+      const id = this.selectedId()
+      if (!id) {
+        return
+      }
+      if (this.medications().some((m) => m.id === id)) {
+        this.select(id)
+        // select() is otherwise only ever called from a template click,
+        // which marks the view on its own -- see the reconcile effect
+        // below for the same nudge.
+        this.changeDetectorRef.markForCheck()
+      } else {
+        // Stale -- the medication behind a cross-tab selection was deleted
+        // elsewhere before this page ever loaded it.
+        this.selectedId.set(null)
+      }
+    })
+
+    // Resets the shared selection (and this page's draft) back to null if
+    // the selected medication is deleted from another tab/device while
+    // sitting on Prescriptions -- otherwise the sidebar/header would keep
+    // pointing at a dead id. Mirrors InteractionsComponent's identical
+    // effect, added there for the same shared-signal reason (see TODO.md
+    // #6, #9).
+    effect(() => {
+      if (!this.medicationsLoaded()) {
+        return
+      }
+      const id = this.selectedId()
+      if (id && !this.medications().some((m) => m.id === id)) {
+        this.selectedId.set(null)
+        this.draft = null
+        this.draftBaseline = null
+        // A plain field write from a reactive effect (not a template event
+        // binding), so it needs an explicit nudge to reach the OnPush view.
+        this.changeDetectorRef.markForCheck()
+      }
+    })
+
     // `select()` can run before `prescriptions()` has received its first
     // Firestore snapshot (still at its `[]` initialValue), producing an
     // empty draft for a medication that actually has saved data. Once real
