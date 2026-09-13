@@ -444,6 +444,28 @@ describe('InteractionsComponent', () => {
       expect(component.canSaveProfile()).toBe(true)
     })
 
+    it('saveProfile() is a no-op before the patient profile has loaded, even if called directly', async () => {
+      // Guards against an implicit form submit reaching saveProfile()
+      // independently of the Save button's [disabled] -- Copilot's PR #19
+      // review flagged that only the button was gated, not the method
+      // itself, risking an unhydrated emptyDraft() overwriting a real
+      // saved profile.
+      const { fixture } = setup(undefined, new Subject<Patient | undefined>())
+      const component = fixture.componentInstance
+
+      await component.saveProfile()
+
+      expect(savePatientSpy).not.toHaveBeenCalled()
+    })
+
+    it('saveProfile() is a no-op on an untouched draft, even if called directly', async () => {
+      const { fixture } = setup()
+
+      await fixture.componentInstance.saveProfile()
+
+      expect(savePatientSpy).not.toHaveBeenCalled()
+    })
+
     it('disables Save again after saveProfile() persists the change', async () => {
       const { fixture } = setup()
       const component = fixture.componentInstance

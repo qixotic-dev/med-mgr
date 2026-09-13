@@ -437,7 +437,16 @@ export class InteractionsComponent {
   }
 
   async saveProfile(): Promise<void> {
-    if (this.isSavingProfile()) {
+    // Guards the method itself, not just the Save button's [disabled] --
+    // matches MedicationsComponent.save()/PrescriptionsComponent.save()'s
+    // own `if (!this.canSave())` guard. Flagged by Copilot's PR #19 review:
+    // an implicit form submit ((ngSubmit) fires independently of a
+    // disabled submit button in some cases) could otherwise persist
+    // draft's still-blank emptyDraft() before hydration, or perform a
+    // pointless write when nothing changed. Subsumes the old standalone
+    // isSavingProfile() check below, since canSaveProfile() already folds
+    // that in.
+    if (!this.canSaveProfile()) {
       return
     }
     this.isSavingProfile.set(true)
