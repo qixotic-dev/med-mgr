@@ -12,7 +12,7 @@ import {
   writeBatch,
 } from '@angular/fire/firestore'
 import { Functions, httpsCallable } from '@angular/fire/functions'
-import { Observable } from 'rxjs'
+import { Observable, shareReplay } from 'rxjs'
 import type { Medication } from '../models/medication.model'
 import { PRESCRIPTIONS_COLLECTION } from './prescription.service'
 
@@ -61,15 +61,27 @@ export class MedicationService {
   private readonly firestore = inject(Firestore)
   private readonly functions = inject(Functions)
 
-  /** Every medication, grouped/sorted for the category-tree sidebar. */
-  readonly all$: Observable<Medication[]> = collectionData(
-    query(
-      collection(this.firestore, COLLECTION),
-      orderBy('category'),
-      orderBy('commonName'),
-    ),
-    { idField: 'id' },
-  ) as Observable<Medication[]>
+  /** Every medication, grouped/sorted for the category-tree sidebar. Shared
+   * (shareReplay) rather than a plain cold `collectionData` stream: it's now
+   * subscribed by up to three places at once -- whichever of
+   * MedicationsComponent/InteractionsComponent is routed in, plus
+   * SelectedMedicationBarComponent, which is mounted for the whole
+   * authenticated session (see TODO.md #7 -- flagged by Copilot review on
+   * PR #18). Without sharing, each subscriber would open its own Firestore
+   * listener against the same query, tripling reads/snapshot updates for no
+   * reason. `refCount: true` still closes the underlying listener once
+   * nothing is subscribed (e.g. fully signed out), rather than leaking it
+   * for the app's lifetime. */
+  readonly all$: Observable<Medication[]> = (
+    collectionData(
+      query(
+        collection(this.firestore, COLLECTION),
+        orderBy('category'),
+        orderBy('commonName'),
+      ),
+      { idField: 'id' },
+    ) as Observable<Medication[]>
+  ).pipe(shareReplay({ bufferSize: 1, refCount: true }))
 
   /**
    * Creates a medication under the given id. `id` isn't part of `data`: it

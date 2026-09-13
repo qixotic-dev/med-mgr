@@ -1,19 +1,22 @@
 <div class="app-shell">
   @if (isAuthenticated()) {
     <header class="app-header">
-      <h1>Rx Order Manager</h1>
-      <nav class="tabs" aria-label="Main navigation">
-        @for (tab of navTabs(); track tab.route) {
-          <a
-            [routerLink]="tab.route"
-            class="tab"
-            [class.active]="tab.active"
-            [attr.aria-current]="tab.active ? 'page' : null"
-            >{{ tab.label }}</a
-          >
-        }
-      </nav>
-      <button type="button" (click)="signOut()">Sign out</button>
+      <div class="app-header-top">
+        <h1>Rx Order Manager</h1>
+        <nav class="tabs" aria-label="Main navigation">
+          @for (tab of navTabs(); track tab.route) {
+            <a
+              [routerLink]="tab.route"
+              class="tab"
+              [class.active]="tab.active"
+              [attr.aria-current]="tab.active ? 'page' : null"
+              >{{ tab.label }}</a
+            >
+          }
+        </nav>
+        <button type="button" (click)="signOut()">Sign out</button>
+      </div>
+      <app-selected-medication-bar />
     </header>
   }
   <main class="app-content">

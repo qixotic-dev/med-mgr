@@ -14,11 +14,12 @@ import {
 import { filter, map } from 'rxjs'
 import { AuthService } from './core/auth.service'
 import { ThemeService } from './core/theme.service'
+import { SelectedMedicationBarComponent } from './shared/selected-medication-bar.component'
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink],
+  imports: [RouterOutlet, RouterLink, SelectedMedicationBarComponent],
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './app.component.scss',
