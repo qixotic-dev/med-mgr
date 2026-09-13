@@ -48,15 +48,15 @@ function emptyMedication(): Omit<Medication, 'id'> {
   return { commonName: '', dose: '', category: '', intervalDays: 0 }
 }
 
+/** The user-typed fields only -- excludes clinicalName/purpose/instructions,
+ * all three now generator-owned, so a save() made while infoStatus is
+ * 'pending' can't clobber whatever the generator is about to write with a
+ * stale or blank draft value. */
 function medicationCoreFields(
   medication: Omit<Medication, 'id'>,
-): Pick<
-  Medication,
-  'commonName' | 'clinicalName' | 'dose' | 'category' | 'intervalDays'
-> {
+): Pick<Medication, 'commonName' | 'dose' | 'category' | 'intervalDays'> {
   return {
     commonName: medication.commonName,
-    clinicalName: medication.clinicalName,
     dose: medication.dose,
     category: medication.category,
     intervalDays: medication.intervalDays,
@@ -167,7 +167,7 @@ export class MedicationsComponent {
    * selected medication, grouped the same way InteractionsComponent does —
    * a client-side filter of the already-computed report, no new Claude call.
    * Limited to 'caveat' findings: drug-drug/condition/allergy findings don't
-   * read sensibly scoped to one medication in isolation (see TODO.md #2).
+   * read sensibly scoped to one medication in isolation.
    * Empty while the report isn't ready yet (pending/error/missing). */
   readonly medicationFindingGroups = computed<FindingGroup[]>(() => {
     const selected = this.selectedMedication()
@@ -288,7 +288,8 @@ export class MedicationsComponent {
     if (id) {
       const infoChanged =
         !!this.draftBaseline &&
-        (draft.purpose !== this.draftBaseline.purpose ||
+        (draft.clinicalName !== this.draftBaseline.clinicalName ||
+          draft.purpose !== this.draftBaseline.purpose ||
           draft.instructions !== this.draftBaseline.instructions)
       // A hand-edit that fills in both purpose and instructions clears any
       // stale pending/error/unset infoStatus immediately, regardless of how
@@ -301,6 +302,12 @@ export class MedicationsComponent {
       // `draftBaseline` (set to that copy once the write settles) would
       // permanently disagree with the live `draft` object on this field,
       // and the reconcile effect above would never fire again.
+      // clinicalName counts toward *triggering* this (a clinicalName-only
+      // hand-edit should still clear a stale error/pending), but is
+      // deliberately not required to be non-blank below: the AI can
+      // correctly return '' for an unrecognized drug, and that's still
+      // "ready", not "incomplete" -- unlike purpose/instructions, which are
+      // always expected to be non-blank once generation succeeds.
       if (infoChanged) {
         draft.infoStatus =
           draft.purpose?.trim() && draft.instructions?.trim()

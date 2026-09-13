@@ -11,28 +11,36 @@ in the app.
 ## Language
 
 **Medication**:
-The drug itself: a common name (`commonName`, required) and an optional
-clinical/generic name (`clinicalName`), dose, category, and how often it
-needs reordering (`intervalDays`). Not a dose-taken record — that's
-`day-mgr`'s concept of the same word, a different app, deliberately not
-reconciled here.
+The drug itself: a common name (`commonName`, required), an AI-generated
+clinical/generic name (`clinicalName` — see Clinical Name / Purpose /
+Instructions below), dose, category, and how often it needs reordering
+(`intervalDays`). Not a dose-taken record — that's `day-mgr`'s concept of
+the same word, a different app, deliberately not reconciled here.
 _Avoid_: Drug (fine as plain English, but use "Medication" as the model
 term), Order (that's Prescription)
 
-**Purpose / Instructions**:
-Per-Medication, AI-generated-once fields: what the drug is for, and general
-guidance on how to take it (timing, food). Generated automatically on
-Medication creation, then hand-editable (a plain textarea, like
-Prescription's `howToOrder`/`scheduleNotes`), with a manual "Regenerate"
-button for backfilling or refreshing. `infoStatus` (`pending`/`ready`/
-`error`, mirrors Interaction Report's `status`) plus `infoError` make
-"generating" and "failed" visible instead of blank fields; unset means never
-generated (e.g. a pre-migration record). Deliberately scoped to standalone
-drug facts only — no drug-drug conflict mentions and no Patient-specific
-content, both of which stay exclusively in the Interaction Report so they
-never go stale. A Medication's detail pane shows the existing Interaction
-Report's Findings read-only (filtered to that Medication) to cover
-"conflicts with another medication" without duplicating that data.
+**Clinical Name / Purpose / Instructions**:
+Per-Medication, AI-generated-once fields: `clinicalName` (the generic/
+clinical name, e.g. "Acetylsalicylic acid" for Aspirin — blank if the AI
+doesn't recognize the drug), `purpose` (what the drug is generally used
+for), and `instructions` (general guidance on how to take it — timing,
+food). All three generate automatically on Medication creation, then are
+hand-editable (plain inputs/textareas, like Prescription's
+`howToOrder`/`scheduleNotes`), with a manual "Regenerate" button for
+backfilling or refreshing. `infoStatus` (`pending`/`ready`/`error`, mirrors
+Interaction Report's `status`) plus `infoError` make "generating" and
+"failed" visible instead of blank fields; unset means never generated (e.g.
+a pre-migration record). `purpose`/`instructions` are deliberately scoped
+to standalone drug facts only — no drug-drug conflict mentions and no
+Patient-specific content, both of which stay exclusively in the Interaction
+Report so they never go stale. `clinicalName` is the exception: the
+Interaction Report reads it (alongside `commonName`/`dose`) as one of the
+medication-identifying fields it analyzes for interactions, so a
+`clinicalName` change invalidates the Interaction Report the same way a
+`commonName`/`dose` edit does. A Medication's detail pane shows the existing
+Interaction Report's Findings read-only (filtered to that Medication) to
+cover "conflicts with
+another medication" without duplicating that data.
 
 **Prescription**:
 The reorder logistics for one Medication: which pharmacy, which prescriber,

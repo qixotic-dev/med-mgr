@@ -42,6 +42,9 @@ function normalizePatient(patient: PatientInput | null): PatientInput | null {
   }
 }
 
+/** Mirrors buildReportInputFingerprint in interactions.component.ts (must
+ * stay in sync) -- see that copy's doc comment for why clinicalName stays in
+ * this fingerprint despite being generator-owned now. */
 function buildReportInputFingerprint(
   medications: MedicationInput[],
   patient: PatientInput | null,

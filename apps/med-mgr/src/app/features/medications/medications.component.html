@@ -51,6 +51,7 @@
             type="text"
             name="clinicalName"
             [(ngModel)]="draft.clinicalName"
+            [disabled]="draft.infoStatus === 'pending'"
           />
         </label>
 
