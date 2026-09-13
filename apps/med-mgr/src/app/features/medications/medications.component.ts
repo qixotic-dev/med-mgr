@@ -168,6 +168,14 @@ export class MedicationsComponent {
 
   readonly error = signal<string | null>(null)
   readonly isRegenerating = signal(false)
+  /** Guards delete() against a double-click firing a second Firestore
+   * delete while the first is still in flight -- mirrors isRegenerating
+   * above. Deliberately not combined with isRegenerating/infoStatus
+   * 'pending': save() already treats 'pending' as a state it's safe to act
+   * in (see its infoChanged branch), so Delete shouldn't be blocked by it
+   * either -- a mistyped new medication (infoStatus set to 'pending' by
+   * save() itself) should be deletable right away. */
+  readonly isDeleting = signal(false)
 
   /** The existing Interaction Report's Caveats that mention the currently
    * selected medication, grouped the same way InteractionsComponent does —
@@ -430,7 +438,7 @@ export class MedicationsComponent {
 
   async delete(): Promise<void> {
     const id = this.selectedId()
-    if (!id) {
+    if (!id || this.isDeleting()) {
       return
     }
     // Falls back to the id if medications() hasn't caught up with a
@@ -441,12 +449,15 @@ export class MedicationsComponent {
     if (!window.confirm(`Delete ${name}? This cannot be undone.`)) {
       return
     }
+    this.isDeleting.set(true)
     this.error.set(null)
     try {
       await this.medicationService.delete(id)
     } catch {
       this.error.set('Failed to delete. Please try again.')
       return
+    } finally {
+      this.isDeleting.set(false)
     }
     // Only clear the form if the user is still on this same selection --
     // otherwise this stale completion would clobber whatever they've since

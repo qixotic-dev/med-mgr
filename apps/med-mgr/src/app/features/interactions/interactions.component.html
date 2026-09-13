@@ -42,7 +42,7 @@
         />
       </label>
 
-      <button type="submit">Save</button>
+      <button type="submit" [disabled]="!canSaveProfile()">Save</button>
     </form>
   </details>
 

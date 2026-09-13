@@ -69,6 +69,21 @@ export function fromDraft(draft: PatientDraft): Patient {
   }
 }
 
+/** Compares the patient-editor form's editable fields — mirrors
+ * MedicationsComponent's isSameMedicationData/PrescriptionsComponent's
+ * isSamePrescriptionData, used the same way here: telling an untouched
+ * draft from an in-progress edit for canSaveProfile()'s dirty check.
+ * Exported for direct unit testing. */
+export function isSamePatientDraft(a: PatientDraft, b: PatientDraft): boolean {
+  return (
+    a.birthdate === b.birthdate &&
+    a.sex === b.sex &&
+    a.allergiesText === b.allergiesText &&
+    a.conditionsText === b.conditionsText &&
+    a.weight === b.weight
+  )
+}
+
 function splitList(text: string): string[] {
   return text
     .split(',')
@@ -287,6 +302,13 @@ export class InteractionsComponent {
    * reconcile against, unlike PrescriptionsComponent's per-selection draft. */
   draft: PatientDraft = emptyDraft()
 
+  /** What `draft` was last hydrated/saved to — compared against `draft` by
+   * canSaveProfile() below to tell an untouched form from an in-progress
+   * edit. A separate object from `draft`, never aliased to it: see
+   * MedicationsComponent.draftBaseline's doc comment for why an aliased
+   * baseline would defeat the comparison. */
+  private draftBaseline: PatientDraft = emptyDraft()
+
   protected readonly hasMedications = computed(
     () => this.medications().length > 0,
   )
@@ -339,6 +361,9 @@ export class InteractionsComponent {
       }
       this.hydratedDraft = true
       this.draft = toDraft(load.patient)
+      // A separate object, not the same reference as `draft` -- see
+      // draftBaseline's doc comment above for why.
+      this.draftBaseline = { ...this.draft }
       // A plain field write from a reactive effect (not a template event
       // binding), so it needs an explicit nudge to reach the OnPush view —
       // see PrescriptionsComponent's reconcile effect for the same pattern.
@@ -375,7 +400,27 @@ export class InteractionsComponent {
     })
   }
 
+  /** Gates the patient-editor form's Save button. Patient has no required
+   * fields (see its model), so there's no field validity to check here --
+   * unlike canSave() on the other two pages. Instead mirrors the other half
+   * of what those pages' canSave() guards against: MedicationsComponent's
+   * canSave() requires medicationsLoaded() before allowing a create-save;
+   * here, requiring hydratedDraft prevents Save persisting `draft`'s
+   * emptyDraft() placeholder over a real profile before patient$ has
+   * emitted. Combined with a dirty check so Save is also disabled once
+   * there's nothing new to persist. */
+  canSaveProfile(): boolean {
+    return (
+      this.hydratedDraft && !isSamePatientDraft(this.draft, this.draftBaseline)
+    )
+  }
+
   async saveProfile(): Promise<void> {
-    await this.patientService.save(fromDraft(this.draft))
+    // Snapshot before the await -- `draft`'s fields keep mutating in place
+    // via [(ngModel)] while the write is in flight, mirroring
+    // PrescriptionsComponent.save()'s `submitted` snapshot.
+    const submitted = { ...this.draft }
+    await this.patientService.save(fromDraft(submitted))
+    this.draftBaseline = submitted
   }
 }

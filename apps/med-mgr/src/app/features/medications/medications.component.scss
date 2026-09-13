@@ -109,6 +109,11 @@
     color: var(--danger);
   }
 
+  .action-row {
+    display: flex;
+    gap: 0.75rem;
+  }
+
   button[type='submit'] {
     align-self: flex-start;
     background: var(--primary);
