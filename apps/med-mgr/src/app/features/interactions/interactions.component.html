@@ -63,6 +63,20 @@
       </p>
     }
 
+    <label class="medication-filter">
+      Filter by medication
+      <select
+        name="medicationFilter"
+        [ngModel]="selectedMedicationId()"
+        (ngModelChange)="selectedMedicationId.set($event)"
+      >
+        <option [ngValue]="null">All medications</option>
+        @for (medication of medications(); track medication.id) {
+          <option [ngValue]="medication.id">{{ medication.commonName }}</option>
+        }
+      </select>
+    </label>
+
     @if (report(); as report) {
       @if (report.status === 'pending') {
         <p class="status-note pending">Generating your report…</p>
@@ -73,10 +87,14 @@
       }
 
       @if (
-        report.status === 'ready' && report.findings.length === 0 && !isStale()
+        report.status === 'ready' && findingGroups().length === 0 && !isStale()
       ) {
         <p class="empty-state">
-          No interactions or caveats found for your current medications.
+          @if (selectedMedicationName(); as name) {
+            No interactions or caveats found for {{ name }}.
+          } @else {
+            No interactions or caveats found for your current medications.
+          }
         </p>
       }
 

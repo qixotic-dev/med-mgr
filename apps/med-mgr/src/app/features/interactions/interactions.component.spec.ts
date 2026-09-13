@@ -1,10 +1,20 @@
+import { TestBed } from '@angular/core/testing'
+import { BehaviorSubject } from 'rxjs'
+import { MedicationService } from '../../services/medication.service'
+import { PatientService } from '../../services/patient.service'
+import { InteractionReportService } from '../../services/interaction-report.service'
 import type { Medication } from '../../models/medication.model'
-import type { InteractionReport } from '../../models/interaction-report.model'
+import type {
+  Finding,
+  InteractionReport,
+} from '../../models/interaction-report.model'
 import type { Patient } from '../../models/patient.model'
 import {
   buildReportInputFingerprint,
+  filterFindingsByMedication,
   fromDraft,
   groupFindings,
+  InteractionsComponent,
   isReportStale,
   toDraft,
 } from './interactions.component'
@@ -215,5 +225,126 @@ describe('groupFindings', () => {
     )
 
     expect(groups[0].findings[0].medicationNames).toEqual(['deleted-med'])
+  })
+})
+
+describe('filterFindingsByMedication', () => {
+  const findings: Finding[] = [
+    {
+      type: 'caveat',
+      severity: 'minor',
+      medicationIds: ['aspirin'],
+      detail: 'take with food',
+    },
+    {
+      type: 'drug-drug',
+      severity: 'moderate',
+      medicationIds: ['aspirin', 'ibuprofen'],
+      detail: 'increased bleeding risk',
+    },
+    {
+      type: 'caveat',
+      severity: 'minor',
+      medicationIds: ['ibuprofen'],
+      detail: 'take with water',
+    },
+  ]
+
+  it('returns every finding, unfiltered, when medicationId is null', () => {
+    expect(filterFindingsByMedication(findings, null)).toEqual(findings)
+  })
+
+  it('keeps only findings that mention the given medication id, across all types', () => {
+    expect(filterFindingsByMedication(findings, 'aspirin')).toEqual([
+      findings[0],
+      findings[1],
+    ])
+  })
+
+  it('returns an empty array when no finding mentions the medication', () => {
+    expect(filterFindingsByMedication(findings, 'acetaminophen')).toEqual([])
+  })
+})
+
+describe('InteractionsComponent', () => {
+  const aspirin: Medication = {
+    id: 'aspirin',
+    commonName: 'Aspirin',
+    dose: '81mg',
+    category: 'Heart',
+    intervalDays: 30,
+  }
+  const ibuprofen: Medication = {
+    id: 'ibuprofen',
+    commonName: 'Ibuprofen',
+    dose: '200mg',
+    category: 'Pain',
+    intervalDays: 30,
+  }
+
+  function setup(
+    medications$: BehaviorSubject<Medication[]> = new BehaviorSubject([
+      aspirin,
+      ibuprofen,
+    ]),
+  ) {
+    TestBed.configureTestingModule({
+      imports: [InteractionsComponent],
+      providers: [
+        { provide: MedicationService, useValue: { all$: medications$ } },
+        {
+          provide: PatientService,
+          useValue: {
+            patient$: new BehaviorSubject<Patient | undefined>(undefined),
+          },
+        },
+        {
+          provide: InteractionReportService,
+          useValue: {
+            report$: new BehaviorSubject<InteractionReport | undefined>(
+              undefined,
+            ),
+            regenerateOnDemand: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+      ],
+    })
+    const fixture = TestBed.createComponent(InteractionsComponent)
+    fixture.detectChanges()
+    return { fixture, medications$ }
+  }
+
+  describe('medication filter reconcile effect', () => {
+    it('resets the filter to "All medications" if the selected medication is deleted', async () => {
+      const { fixture, medications$ } = setup()
+      const component = fixture.componentInstance
+      component.selectedMedicationId.set('aspirin')
+
+      medications$.next([ibuprofen])
+      await fixture.whenStable()
+
+      expect(component.selectedMedicationId()).toBeNull()
+    })
+
+    it('leaves the filter alone while the selected medication still exists', async () => {
+      const { fixture, medications$ } = setup()
+      const component = fixture.componentInstance
+      component.selectedMedicationId.set('aspirin')
+
+      medications$.next([aspirin, ibuprofen])
+      await fixture.whenStable()
+
+      expect(component.selectedMedicationId()).toBe('aspirin')
+    })
+
+    it('does nothing when no filter is selected', async () => {
+      const { fixture, medications$ } = setup()
+      const component = fixture.componentInstance
+
+      medications$.next([ibuprofen])
+      await fixture.whenStable()
+
+      expect(component.selectedMedicationId()).toBeNull()
+    })
   })
 })
