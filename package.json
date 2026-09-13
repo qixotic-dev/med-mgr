@@ -11,7 +11,8 @@
     "emulators": "firebase emulators:start",
     "predeploy:gh-pages": "node tools/assert-firebase-prod-ready.mjs && nx build med-mgr --configuration=production --base-href=/med-mgr/ && node tools/spa-404-fallback.mjs",
     "deploy:gh-pages": "npx angular-cli-ghpages --dir=dist/apps/med-mgr/browser",
-    "deploy:firebase": "node tools/assert-firebase-prod-ready.mjs && firebase deploy --only firestore:rules,firestore:indexes --project prod"
+    "deploy:firebase": "node tools/assert-firebase-prod-ready.mjs && firebase deploy --only firestore:rules,firestore:indexes --project prod",
+    "deploy:functions": "node tools/assert-firebase-prod-ready.mjs && pnpm --prefix functions run build && firebase deploy --only functions --project prod"
   },
   "private": true,
   "dependencies": {
