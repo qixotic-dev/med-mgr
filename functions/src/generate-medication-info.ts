@@ -9,6 +9,18 @@ const MEDICATIONS_COLLECTION = 'medications'
  * Fields the generator writes back to a medication doc -- also everything a
  * hand-edit is allowed to touch without invalidating the Interaction Report.
  * Single source of truth for onMedicationWritten's ignore-list (index.ts).
+ *
+ * `clinicalName` is also generator-owned now (see MedicationInfoSchema) but
+ * deliberately NOT listed here: regenerateInteractionReport (see
+ * regenerate-report.ts) reads clinicalName as an input to the interaction
+ * analysis, and the client-side staleness check
+ * (buildReportInputFingerprint in interactions.component.ts) includes it
+ * too. Adding it here would make onMedicationWritten skip the report regen
+ * whenever only clinicalName changes, leaving that fingerprint check
+ * permanently mismatched -- the Interactions page's "medication list has
+ * changed — regenerating…" banner would never clear, the same stuck-banner
+ * symptom a past stale-Cloud-Functions-deploy incident caused here, just
+ * from a different root cause.
  */
 export const MEDICATION_INFO_FIELDS = [
   'purpose',
@@ -38,13 +50,13 @@ export function isInfoOnlyChange(
 }
 
 const MedicationInfoSchema = z.object({
+  clinicalName: z.string(),
   purpose: z.string(),
   instructions: z.string(),
 })
 
 export interface MedicationInfoInput {
   commonName: string
-  clinicalName?: string
   dose: string
 }
 
@@ -57,7 +69,6 @@ function readMedicationGenerationState(
 ): MedicationGenerationState {
   return {
     commonName: snapshot.get('commonName') as string,
-    clinicalName: snapshot.get('clinicalName') as string | undefined,
     dose: snapshot.get('dose') as string,
     infoStatus: snapshot.get('infoStatus') as
       'pending' | 'ready' | 'error' | undefined,
@@ -66,18 +77,19 @@ function readMedicationGenerationState(
 
 const SYSTEM_PROMPT = `You provide standalone educational information about a single medication for the person taking it. This is an educational aid, not medical advice — hedge appropriately; the person should confirm anything important with their pharmacist or doctor.
 
-Given a medication's common name, optional clinical/generic name, and dose, produce:
+Given a medication's common name and dose, produce:
+- "clinicalName": its generic/clinical name (e.g. "Acetylsalicylic acid" for Aspirin). If the common name already is the generic name, repeat it unchanged. If the drug isn't recognized, return an empty string rather than guessing.
 - "purpose": a one-to-two sentence plain-language explanation of what it's generally used for.
 - "instructions": general guidance on how it's commonly taken (timing, with/without food, etc.), in plain language.
 
 Describe this medication standalone only — never mention interactions, conflicts, or cautions relative to any other medication, and never reference any patient-specific condition, allergy, or profile detail. That information belongs in the separate Interaction Report and is out of scope here.`
 
-/** Calls Claude for one medication's standalone purpose/instructions. */
+/** Calls Claude for one medication's standalone clinicalName/purpose/instructions. */
 export async function generateMedicationInfo(
   apiKey: string,
   model: string,
   medication: MedicationInfoInput,
-): Promise<{ purpose: string; instructions: string }> {
+): Promise<{ clinicalName: string; purpose: string; instructions: string }> {
   const client = new Anthropic({ apiKey })
 
   const response = await client.messages.parse({
@@ -101,9 +113,9 @@ export async function generateMedicationInfo(
 }
 
 /**
- * Regenerates and writes back purpose/instructions/infoStatus/infoError
- * directly onto the medication's own doc -- there's no separate report doc
- * the way there is for the Interaction Report. Called from
+ * Regenerates and writes back clinicalName/purpose/instructions/infoStatus/
+ * infoError directly onto the medication's own doc -- there's no separate
+ * report doc the way there is for the Interaction Report. Called from
  * onMedicationWritten's create branch and from
  * regenerateMedicationInfoOnDemand. Never throws -- mirrors
  * regenerateInteractionReport's catch-and-write-error-status shape.
@@ -134,7 +146,6 @@ export async function regenerateMedicationInfo(
       const currentState = readMedicationGenerationState(currentSnapshot)
       if (
         currentState.commonName !== initialState.commonName ||
-        currentState.clinicalName !== initialState.clinicalName ||
         currentState.dose !== initialState.dose ||
         currentState.infoStatus !== initialState.infoStatus
       ) {
@@ -142,6 +153,7 @@ export async function regenerateMedicationInfo(
       }
 
       transaction.update(ref, {
+        clinicalName: info.clinicalName,
         purpose: info.purpose,
         instructions: info.instructions,
         infoStatus: 'ready',

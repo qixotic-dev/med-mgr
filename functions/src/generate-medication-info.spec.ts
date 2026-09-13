@@ -68,6 +68,44 @@ describe('isInfoOnlyChange', () => {
       ),
     ).toBe(false)
   })
+
+  it('is false when only clinicalName changed -- it must still invalidate the Interaction Report', () => {
+    expect(
+      isInfoOnlyChange(
+        { commonName: 'Aspirin', dose: '81mg' },
+        {
+          commonName: 'Aspirin',
+          dose: '81mg',
+          clinicalName: 'Acetylsalicylic acid',
+        },
+      ),
+    ).toBe(false)
+  })
+
+  it('is false for the actual create-path write-back shape (clinicalName + info fields together)', () => {
+    // What regenerateMedicationInfo's transaction.update() actually writes
+    // once generation finishes after a create -- clinicalName changing
+    // alongside purpose/instructions/infoStatus must still fail this check,
+    // so onMedicationWritten regenerates the Interaction Report with the
+    // now-known clinicalName instead of skipping it as info-only.
+    expect(
+      isInfoOnlyChange(
+        {
+          commonName: 'Aspirin',
+          dose: '81mg',
+          infoStatus: 'pending',
+        },
+        {
+          commonName: 'Aspirin',
+          dose: '81mg',
+          clinicalName: 'Acetylsalicylic acid',
+          purpose: 'pain relief',
+          instructions: 'take with food',
+          infoStatus: 'ready',
+        },
+      ),
+    ).toBe(false)
+  })
 })
 
 describe('generateMedicationInfo', () => {
@@ -77,7 +115,11 @@ describe('generateMedicationInfo', () => {
 
   it('returns the parsed info and calls Claude with medium effort', async () => {
     parseMock.mockResolvedValue({
-      parsed_output: { purpose: 'pain relief', instructions: 'take with food' },
+      parsed_output: {
+        clinicalName: 'Acetylsalicylic acid',
+        purpose: 'pain relief',
+        instructions: 'take with food',
+      },
     })
 
     const result = await generateMedicationInfo('key', 'claude-sonnet-4-5', {
@@ -86,6 +128,7 @@ describe('generateMedicationInfo', () => {
     })
 
     expect(result).toEqual({
+      clinicalName: 'Acetylsalicylic acid',
       purpose: 'pain relief',
       instructions: 'take with food',
     })
@@ -134,7 +177,7 @@ describe('regenerateMedicationInfo', () => {
     ;(getFirestore as jest.Mock).mockReturnValue(dbMock)
   })
 
-  it('writes purpose/instructions/infoStatus back on success', async () => {
+  it('writes clinicalName/purpose/instructions/infoStatus back on success', async () => {
     getMock.mockResolvedValue({
       exists: true,
       get: (field: string) =>
@@ -150,7 +193,11 @@ describe('regenerateMedicationInfo', () => {
         ],
     })
     parseMock.mockResolvedValue({
-      parsed_output: { purpose: 'pain relief', instructions: 'take with food' },
+      parsed_output: {
+        clinicalName: 'Acetylsalicylic acid',
+        purpose: 'pain relief',
+        instructions: 'take with food',
+      },
     })
 
     await regenerateMedicationInfo('key', 'claude-sonnet-4-5', 'aspirin')
@@ -158,6 +205,7 @@ describe('regenerateMedicationInfo', () => {
     expect(transactionUpdateMock).toHaveBeenCalledWith(
       docRef,
       expect.objectContaining({
+        clinicalName: 'Acetylsalicylic acid',
         purpose: 'pain relief',
         instructions: 'take with food',
         infoStatus: 'ready',
@@ -187,7 +235,6 @@ describe('regenerateMedicationInfo', () => {
         (
           ({
             commonName: 'Aspirin',
-            clinicalName: 'Acetylsalicylic acid',
             dose: '81mg',
             infoStatus: 'pending',
           }) as Record<string, string>
@@ -199,14 +246,17 @@ describe('regenerateMedicationInfo', () => {
         (
           ({
             commonName: 'Aspirin',
-            clinicalName: 'Acetylsalicylic acid',
             dose: '325mg',
             infoStatus: 'pending',
           }) as Record<string, string>
         )[field],
     })
     parseMock.mockResolvedValue({
-      parsed_output: { purpose: 'pain relief', instructions: 'take with food' },
+      parsed_output: {
+        clinicalName: 'Acetylsalicylic acid',
+        purpose: 'pain relief',
+        instructions: 'take with food',
+      },
     })
 
     await regenerateMedicationInfo('key', 'claude-sonnet-4-5', 'aspirin')

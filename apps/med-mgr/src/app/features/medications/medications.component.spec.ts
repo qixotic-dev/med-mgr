@@ -197,6 +197,34 @@ describe('MedicationsComponent', () => {
       expect(createSpy).not.toHaveBeenCalled()
     })
 
+    it('clears a stale infoError via a clinicalName-only edit once purpose/instructions are already present', async () => {
+      const readyAspirin: Medication = {
+        ...aspirin,
+        purpose: 'Pain relief',
+        instructions: 'Take with food',
+        infoStatus: 'error',
+        infoError: 'boom',
+      }
+      const fixture = setup(new BehaviorSubject([readyAspirin, ibuprofen]))
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.clinicalName = 'Acetylsalicylic acid'
+
+      await component.save()
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        'aspirin',
+        expect.objectContaining({
+          clinicalName: 'Acetylsalicylic acid',
+          infoStatus: 'ready',
+          infoError: undefined,
+        }),
+      )
+    })
+
     it('sets infoStatus to ready when a hand-edit fills in both purpose and instructions', async () => {
       const fixture = setup()
       const component = fixture.componentInstance
@@ -288,6 +316,30 @@ describe('MedicationsComponent', () => {
 
     it('omits generator-owned fields while pending and saving only core edits', async () => {
       const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      if (!component.draft) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft.infoStatus = 'pending'
+      component.draft.dose = '162mg'
+
+      await component.save()
+
+      expect(updateSpy).toHaveBeenCalledWith('aspirin', {
+        commonName: 'Aspirin',
+        dose: '162mg',
+        category: 'Heart',
+        intervalDays: 90,
+      })
+    })
+
+    it('omits a non-blank clinicalName while pending too, not just purpose/instructions', async () => {
+      const withClinicalName: Medication = {
+        ...aspirin,
+        clinicalName: 'Acetylsalicylic acid',
+      }
+      const fixture = setup(new BehaviorSubject([withClinicalName, ibuprofen]))
       const component = fixture.componentInstance
       component.select('aspirin')
       if (!component.draft) {

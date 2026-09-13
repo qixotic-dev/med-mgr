@@ -96,6 +96,11 @@ function reportInputFingerprint(
   return typeof inputFingerprint === 'string' ? inputFingerprint : undefined
 }
 
+/** clinicalName stays in this fingerprint even though it's generator-owned
+ * now, not user-typed: regenerateInteractionReport reads it as an input, so
+ * a change to it must still count as stale here. It's kept off
+ * MEDICATION_INFO_FIELDS (generate-medication-info.ts) for the matching
+ * reason -- see that constant's doc comment. */
 export function buildReportInputFingerprint(
   medications: Medication[],
   patient: Patient | undefined,
