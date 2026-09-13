@@ -230,11 +230,19 @@ export class InteractionsComponent {
   private readonly interactionReportService = inject(InteractionReportService)
   private readonly changeDetectorRef = inject(ChangeDetectorRef)
 
+  /** `undefined` until all$ has emitted at least once -- distinguishes "no
+   * medications yet" from "haven't heard from Firestore yet" for the
+   * reconcile effect below, mirroring MedicationsComponent's
+   * medicationsSnapshot/medicationsLoaded. */
+  private readonly medicationsSnapshot = toSignal(this.medicationService.all$)
   /** protected (not private) so the template can list options for the
    * medication filter below. */
-  protected readonly medications = toSignal(this.medicationService.all$, {
-    initialValue: [],
-  })
+  protected readonly medications = computed(
+    () => this.medicationsSnapshot() ?? [],
+  )
+  private readonly medicationsLoaded = computed(
+    () => this.medicationsSnapshot() !== undefined,
+  )
   protected readonly report = toSignal(this.interactionReportService.report$)
 
   /** Optional filter narrowing the report below to one medication's
@@ -308,7 +316,16 @@ export class InteractionsComponent {
       // medication is deleted from another tab/device while this page has
       // it filtered — otherwise the <select> would show a value with no
       // matching <option> (blank) alongside a findings list that silently
-      // never explains why it's empty.
+      // never explains why it's empty. Waits for medicationsLoaded() first:
+      // a selection hydrated from the shared service (see TODO.md #6) can
+      // already be non-null before this page's own Firestore snapshot has
+      // arrived, and medications() reads as [] either way (loading or
+      // genuinely empty) -- without this guard, a valid cross-tab selection
+      // would look identical to "was deleted" and get cleared before the
+      // real data even loads.
+      if (!this.medicationsLoaded()) {
+        return
+      }
       const id = this.selectedMedicationId()
       if (id && !this.medications().some((m) => m.id === id)) {
         this.selectedMedicationId.set(null)
