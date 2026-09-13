@@ -3,6 +3,8 @@ import { TestBed } from '@angular/core/testing'
 import { ActivatedRoute, provideRouter, Router } from '@angular/router'
 import { BehaviorSubject } from 'rxjs'
 import { AuthService, SessionState } from './core/auth.service'
+import { MedicationService } from './services/medication.service'
+import type { Medication } from './models/medication.model'
 import { AppComponent } from './app.component'
 
 @Component({ selector: 'app-route-stub', standalone: true, template: '' })
@@ -31,6 +33,13 @@ describe('AppComponent', () => {
           { path: 'interactions', component: RouteStubComponent },
         ]),
         { provide: AuthService, useValue: { session$ } },
+        // AppComponent's template mounts SelectedMedicationBarComponent
+        // (see TODO.md #7), which injects MedicationService itself -- mocked
+        // here so it doesn't reach the real Firestore-backed service.
+        {
+          provide: MedicationService,
+          useValue: { all$: new BehaviorSubject<Medication[]>([]) },
+        },
         { provide: ActivatedRoute, useValue: {} },
       ],
     }).compileComponents()
@@ -102,6 +111,18 @@ describe('AppComponent', () => {
     expect(tabs[0].classList.contains('active')).toBe(false)
     expect(tabs[1].classList.contains('active')).toBe(false)
     expect(tabs[2].classList.contains('active')).toBe(true)
+  })
+
+  it('mounts the selected-medication bar inside the header once authenticated', () => {
+    const fixture = TestBed.createComponent(AppComponent)
+    fixture.detectChanges()
+
+    // SelectedMedicationBarComponent's own behavior (showing/hiding by
+    // selection) is covered by its own spec -- this just checks AppComponent
+    // wires it into the header (TODO.md #7).
+    const header: HTMLElement =
+      fixture.nativeElement.querySelector('.app-header')
+    expect(header.querySelector('app-selected-medication-bar')).toBeTruthy()
   })
 
   it('toggles the theme when the theme button is clicked', async () => {
