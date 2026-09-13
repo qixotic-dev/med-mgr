@@ -14,6 +14,7 @@ import { MedicationService } from '../../services/medication.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
 import type { Medication } from '../../models/medication.model'
 import {
+  filterFindingsByMedication,
   groupFindings,
   type FindingGroup,
 } from '../interactions/interactions.component'
@@ -175,9 +176,10 @@ export class MedicationsComponent {
     if (!selected || report?.status !== 'ready') {
       return []
     }
-    const relevant = report.findings.filter(
-      (f) => f.type === 'caveat' && f.medicationIds.includes(selected.id),
-    )
+    const relevant = filterFindingsByMedication(
+      report.findings,
+      selected.id,
+    ).filter((f) => f.type === 'caveat')
     return groupFindings(relevant, this.medications())
   })
 

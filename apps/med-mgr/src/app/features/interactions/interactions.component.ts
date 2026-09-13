@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   inject,
+  signal,
 } from '@angular/core'
 import { toSignal } from '@angular/core/rxjs-interop'
 import { FormsModule } from '@angular/forms'
@@ -188,12 +189,32 @@ export function groupFindings(
 }
 
 /**
+ * Narrows `findings` to those mentioning `medicationId` — every Finding type
+ * (unlike MedicationsComponent.medicationFindingGroups, which limits itself
+ * to 'caveat' since drug-drug pairs don't read sensibly scoped to a single
+ * medication there; here the *other* medication in a drug-drug pair is still
+ * shown via medicationNames, so the pair itself is relevant). `null` means no
+ * filter selected — the page's default "all medications" view. Exported for
+ * direct unit testing.
+ */
+export function filterFindingsByMedication(
+  findings: Finding[],
+  medicationId: string | null,
+): Finding[] {
+  return medicationId
+    ? findings.filter((f) => f.medicationIds.includes(medicationId))
+    : findings
+}
+
+/**
  * The Interaction Report page (see CONTEXT.md: Interaction Report, Finding,
  * Patient). Read-only display of the AI-generated report plus a Patient
  * profile editor — regeneration itself happens server-side (the
  * interaction-report Cloud Function), usually from writes to `medications`
  * or `patients/me`, with an on-demand backfill call when older data has no
- * current report yet; this component never calls the AI directly.
+ * current report yet; this component never calls the AI directly. An
+ * optional per-medication filter (selectedMedicationId) narrows the findings
+ * shown below without changing any of that — see TODO.md #5.
  */
 @Component({
   selector: 'app-interactions',
@@ -209,10 +230,34 @@ export class InteractionsComponent {
   private readonly interactionReportService = inject(InteractionReportService)
   private readonly changeDetectorRef = inject(ChangeDetectorRef)
 
-  private readonly medications = toSignal(this.medicationService.all$, {
+  /** protected (not private) so the template can list options for the
+   * medication filter below. */
+  protected readonly medications = toSignal(this.medicationService.all$, {
     initialValue: [],
   })
   protected readonly report = toSignal(this.interactionReportService.report$)
+
+  /** Optional filter narrowing the report below to one medication's
+   * findings — supplements the default all-medications view rather than
+   * replacing it (per-page state, not shared with MedicationsComponent's own
+   * selectedId; see TODO.md #5/#6). `null` shows every finding. A deleted
+   * selection is reset back to `null` by the reconcile effect below, not
+   * handled here. Public (like MedicationsComponent.selectedId), not
+   * protected, so tests can drive it directly — see this file's spec. */
+  readonly selectedMedicationId = signal<string | null>(null)
+
+  /** The selected medication's display name, for the filtered empty-state
+   * message below. `?? id` is a harmless backstop for the brief render
+   * before the reconcile effect below resets a deleted selection back to
+   * `null` — that effect is what actually owns "selection no longer exists",
+   * not this fallback. `null` when no filter is selected. */
+  protected readonly selectedMedicationName = computed(() => {
+    const id = this.selectedMedicationId()
+    if (!id) {
+      return null
+    }
+    return this.medications().find((m) => m.id === id)?.commonName ?? id
+  })
 
   /** `undefined` until patient$ has emitted at least once (wrapped so a
    * genuinely absent profile — itself `undefined` — is still distinguishable
@@ -247,10 +292,28 @@ export class InteractionsComponent {
   })
 
   protected readonly findingGroups = computed(() =>
-    groupFindings(this.report()?.findings ?? [], this.medications()),
+    groupFindings(
+      filterFindingsByMedication(
+        this.report()?.findings ?? [],
+        this.selectedMedicationId(),
+      ),
+      this.medications(),
+    ),
   )
 
   constructor() {
+    effect(() => {
+      // Resets the filter back to "All medications" if the selected
+      // medication is deleted from another tab/device while this page has
+      // it filtered — otherwise the <select> would show a value with no
+      // matching <option> (blank) alongside a findings list that silently
+      // never explains why it's empty.
+      const id = this.selectedMedicationId()
+      if (id && !this.medications().some((m) => m.id === id)) {
+        this.selectedMedicationId.set(null)
+      }
+    })
+
     effect(() => {
       const load = this.patientLoad()
       if (this.hydratedDraft || load === undefined) {
