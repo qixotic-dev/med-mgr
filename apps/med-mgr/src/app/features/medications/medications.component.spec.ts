@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing'
 import { BehaviorSubject, Observable, Subject } from 'rxjs'
 import { MedicationService } from '../../services/medication.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
+import { SelectedMedicationService } from '../../services/selected-medication.service'
 import type { Medication } from '../../models/medication.model'
 import type { InteractionReport } from '../../models/interaction-report.model'
 import {
@@ -907,6 +908,113 @@ describe('MedicationsComponent', () => {
 
       expect(component.isNewCategory).toBe(true)
       expect(component.draft?.category).toBe('')
+    })
+  })
+
+  describe('cross-tab selection hydration (SelectedMedicationService)', () => {
+    /** Mirrors setup() above, but seeds SelectedMedicationService before the
+     * component is created -- simulating a selection already made on the
+     * Interactions page's filter before this page was ever mounted (the two
+     * pages share one instance -- see TODO.md #6). */
+    function setupWithPreselectedId(id: string | null) {
+      createSpy = jest.fn().mockResolvedValue(undefined)
+      updateSpy = jest.fn().mockResolvedValue(undefined)
+      deleteSpy = jest.fn().mockResolvedValue(undefined)
+      regenerateInfoOnDemandSpy = jest.fn().mockResolvedValue(undefined)
+      TestBed.configureTestingModule({
+        imports: [MedicationsComponent],
+        providers: [
+          {
+            provide: MedicationService,
+            useValue: {
+              all$: new BehaviorSubject([aspirin, ibuprofen]),
+              create: createSpy,
+              update: updateSpy,
+              delete: deleteSpy,
+              regenerateInfoOnDemand: regenerateInfoOnDemandSpy,
+            },
+          },
+          {
+            provide: InteractionReportService,
+            useValue: {
+              report$: new BehaviorSubject<InteractionReport | undefined>(
+                undefined,
+              ),
+            },
+          },
+        ],
+      })
+      TestBed.inject(SelectedMedicationService).selectedId.set(id)
+      const fixture = TestBed.createComponent(MedicationsComponent)
+      fixture.detectChanges()
+      return fixture
+    }
+
+    it('loads the draft from a selection already made on the Interactions page', () => {
+      const component = setupWithPreselectedId('ibuprofen').componentInstance
+
+      expect(component.selectedId()).toBe('ibuprofen')
+      expect(component.draft?.commonName).toBe('Ibuprofen')
+    })
+
+    it('resets the shared selection to null if the preselected medication no longer exists', () => {
+      const component =
+        setupWithPreselectedId('acetaminophen').componentInstance
+
+      expect(component.selectedId()).toBeNull()
+      expect(component.draft).toBeNull()
+    })
+
+    it('does nothing when nothing was selected elsewhere', () => {
+      const component = setupWithPreselectedId(null).componentInstance
+
+      expect(component.selectedId()).toBeNull()
+      expect(component.draft).toBeNull()
+    })
+
+    it('hydrates once the first medications snapshot arrives later', async () => {
+      // A bare Subject never emits an initial value (unlike the
+      // BehaviorSubject the other tests above use), mirroring Firestore's
+      // collectionData(): medicationsLoaded() flips true *after* the first
+      // render, exercising the hydration effect's "wait, then run once"
+      // shape on a snapshot that genuinely arrives asynchronously, rather
+      // than one already present by construction time.
+      createSpy = jest.fn().mockResolvedValue(undefined)
+      updateSpy = jest.fn().mockResolvedValue(undefined)
+      deleteSpy = jest.fn().mockResolvedValue(undefined)
+      regenerateInfoOnDemandSpy = jest.fn().mockResolvedValue(undefined)
+      const source = new Subject<Medication[]>()
+      TestBed.configureTestingModule({
+        imports: [MedicationsComponent],
+        providers: [
+          {
+            provide: MedicationService,
+            useValue: {
+              all$: source,
+              create: createSpy,
+              update: updateSpy,
+              delete: deleteSpy,
+              regenerateInfoOnDemand: regenerateInfoOnDemandSpy,
+            },
+          },
+          {
+            provide: InteractionReportService,
+            useValue: {
+              report$: new BehaviorSubject<InteractionReport | undefined>(
+                undefined,
+              ),
+            },
+          },
+        ],
+      })
+      TestBed.inject(SelectedMedicationService).selectedId.set('ibuprofen')
+      const fixture = TestBed.createComponent(MedicationsComponent)
+      fixture.detectChanges()
+
+      source.next([aspirin, ibuprofen])
+      await fixture.whenStable()
+
+      expect(fixture.componentInstance.draft?.commonName).toBe('Ibuprofen')
     })
   })
 

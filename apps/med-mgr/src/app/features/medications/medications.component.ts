@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms'
 import { SeverityBadgeComponent } from '../../shared/severity-badge.component'
 import { MedicationService } from '../../services/medication.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
+import { SelectedMedicationService } from '../../services/selected-medication.service'
 import type { Medication } from '../../models/medication.model'
 import {
   filterFindingsByMedication,
@@ -156,7 +157,11 @@ export class MedicationsComponent {
     ...new Set(this.medications().map((m) => m.category)),
   ])
 
-  readonly selectedId = signal<string | null>(null)
+  /** Shared with InteractionsComponent via SelectedMedicationService (see
+   * TODO.md #6) so the same medication stays selected across tabs — this
+   * page also uses it to choose which medication's edit form (`draft`
+   * below) is shown. */
+  readonly selectedId = inject(SelectedMedicationService).selectedId
   readonly selectedMedication = computed(
     () => this.medications().find((m) => m.id === this.selectedId()) ?? null,
   )
@@ -197,7 +202,39 @@ export class MedicationsComponent {
 
   isNewCategory = false
 
+  /** Whether the one-time hydration effect below has already run. */
+  private hydratedSelection = false
+
   constructor() {
+    // Loads `draft` from a selection already made on the Interactions page's
+    // filter before this page was ever mounted — selectedId is shared (see
+    // its doc comment above), but select() is otherwise only ever called
+    // from this component's own sidebar clicks, so a pre-existing selection
+    // needs this one-time hydration to actually show up in the form. Waits
+    // for medicationsLoaded() so it can tell "not found yet" from "was
+    // deleted elsewhere", then never runs again.
+    effect(() => {
+      if (this.hydratedSelection || !this.medicationsLoaded()) {
+        return
+      }
+      this.hydratedSelection = true
+      const id = this.selectedId()
+      if (!id) {
+        return
+      }
+      if (this.medications().some((m) => m.id === id)) {
+        this.select(id)
+        // select() is otherwise only ever called from a template click,
+        // which marks the view on its own -- see the reconcile effect below
+        // for the same nudge.
+        this.changeDetectorRef.markForCheck()
+      } else {
+        // Stale -- the medication behind a cross-tab selection was deleted
+        // elsewhere before this page ever loaded it.
+        this.selectedId.set(null)
+      }
+    })
+
     effect(() => {
       const id = this.selectedId()
       const medications = this.medications()

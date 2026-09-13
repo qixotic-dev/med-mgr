@@ -5,7 +5,6 @@ import {
   computed,
   effect,
   inject,
-  signal,
 } from '@angular/core'
 import { toSignal } from '@angular/core/rxjs-interop'
 import { FormsModule } from '@angular/forms'
@@ -14,6 +13,7 @@ import { SeverityBadgeComponent } from '../../shared/severity-badge.component'
 import { MedicationService } from '../../services/medication.service'
 import { PatientService } from '../../services/patient.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
+import { SelectedMedicationService } from '../../services/selected-medication.service'
 import type { Medication } from '../../models/medication.model'
 import type { Patient } from '../../models/patient.model'
 import type {
@@ -230,21 +230,30 @@ export class InteractionsComponent {
   private readonly interactionReportService = inject(InteractionReportService)
   private readonly changeDetectorRef = inject(ChangeDetectorRef)
 
+  /** `undefined` until all$ has emitted at least once -- distinguishes "no
+   * medications yet" from "haven't heard from Firestore yet" for the
+   * reconcile effect below, mirroring MedicationsComponent's
+   * medicationsSnapshot/medicationsLoaded. */
+  private readonly medicationsSnapshot = toSignal(this.medicationService.all$)
   /** protected (not private) so the template can list options for the
    * medication filter below. */
-  protected readonly medications = toSignal(this.medicationService.all$, {
-    initialValue: [],
-  })
+  protected readonly medications = computed(
+    () => this.medicationsSnapshot() ?? [],
+  )
+  private readonly medicationsLoaded = computed(
+    () => this.medicationsSnapshot() !== undefined,
+  )
   protected readonly report = toSignal(this.interactionReportService.report$)
 
   /** Optional filter narrowing the report below to one medication's
    * findings — supplements the default all-medications view rather than
-   * replacing it (per-page state, not shared with MedicationsComponent's own
-   * selectedId; see TODO.md #5/#6). `null` shows every finding. A deleted
-   * selection is reset back to `null` by the reconcile effect below, not
-   * handled here. Public (like MedicationsComponent.selectedId), not
+   * replacing it. Shared with MedicationsComponent via
+   * SelectedMedicationService (see TODO.md #6), so selecting a medication on
+   * either page carries over to the other. `null` shows every finding. A
+   * deleted selection is reset back to `null` by the reconcile effect below,
+   * not handled here. Public (like MedicationsComponent.selectedId), not
    * protected, so tests can drive it directly — see this file's spec. */
-  readonly selectedMedicationId = signal<string | null>(null)
+  readonly selectedMedicationId = inject(SelectedMedicationService).selectedId
 
   /** The selected medication's display name, for the filtered empty-state
    * message below. `?? id` is a harmless backstop for the brief render
@@ -307,7 +316,16 @@ export class InteractionsComponent {
       // medication is deleted from another tab/device while this page has
       // it filtered — otherwise the <select> would show a value with no
       // matching <option> (blank) alongside a findings list that silently
-      // never explains why it's empty.
+      // never explains why it's empty. Waits for medicationsLoaded() first:
+      // a selection hydrated from the shared service (see TODO.md #6) can
+      // already be non-null before this page's own Firestore snapshot has
+      // arrived, and medications() reads as [] either way (loading or
+      // genuinely empty) -- without this guard, a valid cross-tab selection
+      // would look identical to "was deleted" and get cleared before the
+      // real data even loads.
+      if (!this.medicationsLoaded()) {
+        return
+      }
       const id = this.selectedMedicationId()
       if (id && !this.medications().some((m) => m.id === id)) {
         this.selectedMedicationId.set(null)

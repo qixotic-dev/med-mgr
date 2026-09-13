@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing'
-import { BehaviorSubject } from 'rxjs'
+import { BehaviorSubject, Subject } from 'rxjs'
 import { MedicationService } from '../../services/medication.service'
 import { PatientService } from '../../services/patient.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
+import { SelectedMedicationService } from '../../services/selected-medication.service'
 import type { Medication } from '../../models/medication.model'
 import type {
   Finding,
@@ -345,6 +346,68 @@ describe('InteractionsComponent', () => {
       await fixture.whenStable()
 
       expect(component.selectedMedicationId()).toBeNull()
+    })
+  })
+
+  describe('cross-tab selection (SelectedMedicationService)', () => {
+    it('reflects a selection already made on the Medications page', () => {
+      const { fixture } = setup()
+
+      TestBed.inject(SelectedMedicationService).selectedId.set('aspirin')
+
+      expect(fixture.componentInstance.selectedMedicationId()).toBe('aspirin')
+    })
+
+    it('changing the filter here is visible to the Medications page', () => {
+      const { fixture } = setup()
+
+      fixture.componentInstance.selectedMedicationId.set('ibuprofen')
+
+      expect(TestBed.inject(SelectedMedicationService).selectedId()).toBe(
+        'ibuprofen',
+      )
+    })
+
+    it('does not clear a preselected id before this page\'s own first medications snapshot arrives', async () => {
+      // A bare Subject never emits an initial value (unlike the
+      // BehaviorSubject setup() above uses), mirroring Firestore's
+      // collectionData(): medications() starts at its toSignal initialValue
+      // ([]) before the real snapshot lands. A selection made on the
+      // Medications page before this page ever mounted (SelectedMedicationService
+      // is shared -- see TODO.md #6) must survive that window, not get read
+      // as "deleted" just because it isn't in an empty placeholder list yet.
+      const source = new Subject<Medication[]>()
+      TestBed.configureTestingModule({
+        imports: [InteractionsComponent],
+        providers: [
+          { provide: MedicationService, useValue: { all$: source } },
+          {
+            provide: PatientService,
+            useValue: {
+              patient$: new BehaviorSubject<Patient | undefined>(undefined),
+            },
+          },
+          {
+            provide: InteractionReportService,
+            useValue: {
+              report$: new BehaviorSubject<InteractionReport | undefined>(
+                undefined,
+              ),
+              regenerateOnDemand: jest.fn().mockResolvedValue(undefined),
+            },
+          },
+        ],
+      })
+      TestBed.inject(SelectedMedicationService).selectedId.set('aspirin')
+      const fixture = TestBed.createComponent(InteractionsComponent)
+      fixture.detectChanges()
+
+      expect(fixture.componentInstance.selectedMedicationId()).toBe('aspirin')
+
+      source.next([aspirin, ibuprofen])
+      await fixture.whenStable()
+
+      expect(fixture.componentInstance.selectedMedicationId()).toBe('aspirin')
     })
   })
 })
