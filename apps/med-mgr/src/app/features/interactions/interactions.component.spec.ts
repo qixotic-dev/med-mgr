@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing'
-import { BehaviorSubject, Subject } from 'rxjs'
+import { BehaviorSubject, Observable, Subject } from 'rxjs'
 import { MedicationService } from '../../services/medication.service'
 import { PatientService } from '../../services/patient.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
@@ -283,21 +283,25 @@ describe('InteractionsComponent', () => {
     intervalDays: 30,
   }
 
+  let savePatientSpy: jest.Mock
+
   function setup(
     medications$: BehaviorSubject<Medication[]> = new BehaviorSubject([
       aspirin,
       ibuprofen,
     ]),
+    patient$: Observable<Patient | undefined> = new BehaviorSubject<
+      Patient | undefined
+    >(undefined),
   ) {
+    savePatientSpy = jest.fn().mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       imports: [InteractionsComponent],
       providers: [
         { provide: MedicationService, useValue: { all$: medications$ } },
         {
           provide: PatientService,
-          useValue: {
-            patient$: new BehaviorSubject<Patient | undefined>(undefined),
-          },
+          useValue: { patient$, save: savePatientSpy },
         },
         {
           provide: InteractionReportService,
@@ -408,6 +412,98 @@ describe('InteractionsComponent', () => {
       await fixture.whenStable()
 
       expect(fixture.componentInstance.selectedMedicationId()).toBe('aspirin')
+    })
+  })
+
+  describe('patient profile save gating (canSaveProfile/saveProfile)', () => {
+    it('disables Save before the patient profile has loaded', () => {
+      // A bare Subject never emits, mirroring the "not hydrated yet" window
+      // covered elsewhere in this file for medications() -- here it keeps
+      // hydratedDraft false, so canSaveProfile() must not fall back to
+      // treating the still-empty `draft` as save-worthy.
+      const { fixture } = setup(undefined, new Subject<Patient | undefined>())
+
+      expect(fixture.componentInstance.canSaveProfile()).toBe(false)
+    })
+
+    it('disables Save once loaded but untouched', () => {
+      const { fixture } = setup(
+        undefined,
+        new BehaviorSubject<Patient | undefined>(undefined),
+      )
+
+      expect(fixture.componentInstance.canSaveProfile()).toBe(false)
+    })
+
+    it('enables Save once the draft differs from the loaded profile', () => {
+      const { fixture } = setup()
+      const component = fixture.componentInstance
+
+      component.draft.weight = '160 lbs'
+
+      expect(component.canSaveProfile()).toBe(true)
+    })
+
+    it('saveProfile() is a no-op before the patient profile has loaded, even if called directly', async () => {
+      // Guards against an implicit form submit reaching saveProfile()
+      // independently of the Save button's [disabled] -- Copilot's PR #19
+      // review flagged that only the button was gated, not the method
+      // itself, risking an unhydrated emptyDraft() overwriting a real
+      // saved profile.
+      const { fixture } = setup(undefined, new Subject<Patient | undefined>())
+      const component = fixture.componentInstance
+
+      await component.saveProfile()
+
+      expect(savePatientSpy).not.toHaveBeenCalled()
+    })
+
+    it('saveProfile() is a no-op on an untouched draft, even if called directly', async () => {
+      const { fixture } = setup()
+
+      await fixture.componentInstance.saveProfile()
+
+      expect(savePatientSpy).not.toHaveBeenCalled()
+    })
+
+    it('disables Save again after saveProfile() persists the change', async () => {
+      const { fixture } = setup()
+      const component = fixture.componentInstance
+      component.draft.weight = '160 lbs'
+
+      await component.saveProfile()
+
+      expect(savePatientSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ weight: '160 lbs' }),
+      )
+      expect(component.canSaveProfile()).toBe(false)
+    })
+
+    it('ignores a second saveProfile() call while the first is still in flight', async () => {
+      const { fixture } = setup()
+      const component = fixture.componentInstance
+      let resolveSave: () => void = () => {
+        throw new Error('save() was not called')
+      }
+      savePatientSpy.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveSave = resolve
+          }),
+      )
+      component.draft.weight = '160 lbs'
+
+      const firstSave = component.saveProfile()
+      expect(component.isSavingProfile()).toBe(true)
+      expect(component.canSaveProfile()).toBe(false)
+
+      await component.saveProfile()
+      expect(savePatientSpy).toHaveBeenCalledTimes(1)
+
+      resolveSave()
+      await firstSave
+
+      expect(component.isSavingProfile()).toBe(false)
     })
   })
 })

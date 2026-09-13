@@ -606,6 +606,45 @@ describe('MedicationsComponent', () => {
 
       expect(component.selectedId()).toBe('ibuprofen')
     })
+
+    it('ignores a second delete() call while the first is still in flight', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      let resolveDelete: () => void = () => {
+        throw new Error('delete() was not called')
+      }
+      deleteSpy.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveDelete = resolve
+          }),
+      )
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+
+      const firstDelete = component.delete()
+      expect(component.isDeleting()).toBe(true)
+
+      await component.delete()
+      expect(deleteSpy).toHaveBeenCalledTimes(1)
+
+      resolveDelete()
+      await firstDelete
+
+      expect(component.isDeleting()).toBe(false)
+    })
+
+    it('clears isDeleting even when delete() rejects', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+      deleteSpy.mockRejectedValue(new Error('offline'))
+
+      await component.delete()
+
+      expect(component.isDeleting()).toBe(false)
+    })
   })
 
   describe('reconcile effect', () => {
