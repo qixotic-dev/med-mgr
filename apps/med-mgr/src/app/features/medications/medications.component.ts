@@ -163,9 +163,11 @@ export class MedicationsComponent {
   readonly error = signal<string | null>(null)
   readonly isRegenerating = signal(false)
 
-  /** The existing Interaction Report's Findings that mention the currently
+  /** The existing Interaction Report's Caveats that mention the currently
    * selected medication, grouped the same way InteractionsComponent does —
    * a client-side filter of the already-computed report, no new Claude call.
+   * Limited to 'caveat' findings: drug-drug/condition/allergy findings don't
+   * read sensibly scoped to one medication in isolation (see TODO.md #2).
    * Empty while the report isn't ready yet (pending/error/missing). */
   readonly medicationFindingGroups = computed<FindingGroup[]>(() => {
     const selected = this.selectedMedication()
@@ -173,8 +175,8 @@ export class MedicationsComponent {
     if (!selected || report?.status !== 'ready') {
       return []
     }
-    const relevant = report.findings.filter((f) =>
-      f.medicationIds.includes(selected.id),
+    const relevant = report.findings.filter(
+      (f) => f.type === 'caveat' && f.medicationIds.includes(selected.id),
     )
     return groupFindings(relevant, this.medications())
   })

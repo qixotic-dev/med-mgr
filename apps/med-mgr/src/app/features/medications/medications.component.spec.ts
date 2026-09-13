@@ -806,6 +806,32 @@ describe('MedicationsComponent', () => {
       expect(groups).toHaveLength(1)
       expect(groups[0].findings[0].detail).toBe('take with food')
     })
+
+    it('excludes drug-drug/condition/allergy findings even when they mention the selected medication', () => {
+      const report$ = new BehaviorSubject<InteractionReport | undefined>(
+        reportWith('ready', [
+          {
+            type: 'drug-drug',
+            severity: 'major',
+            medicationIds: ['aspirin', 'ibuprofen'],
+            detail: 'increased bleeding risk',
+          },
+          {
+            type: 'caveat',
+            severity: 'minor',
+            medicationIds: ['aspirin'],
+            detail: 'take with food',
+          },
+        ]),
+      )
+      const fixture = setup(undefined, report$)
+      fixture.componentInstance.select('aspirin')
+
+      const groups = fixture.componentInstance.medicationFindingGroups()
+      expect(groups).toHaveLength(1)
+      expect(groups[0].type).toBe('caveat')
+      expect(groups[0].findings[0].detail).toBe('take with food')
+    })
   })
 
   describe('onCategorySelect', () => {
