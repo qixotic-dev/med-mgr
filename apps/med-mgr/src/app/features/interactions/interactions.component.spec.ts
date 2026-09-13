@@ -3,6 +3,7 @@ import { BehaviorSubject } from 'rxjs'
 import { MedicationService } from '../../services/medication.service'
 import { PatientService } from '../../services/patient.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
+import { SelectedMedicationService } from '../../services/selected-medication.service'
 import type { Medication } from '../../models/medication.model'
 import type {
   Finding,
@@ -345,6 +346,26 @@ describe('InteractionsComponent', () => {
       await fixture.whenStable()
 
       expect(component.selectedMedicationId()).toBeNull()
+    })
+  })
+
+  describe('cross-tab selection (SelectedMedicationService)', () => {
+    it('reflects a selection already made on the Medications page', () => {
+      const { fixture } = setup()
+
+      TestBed.inject(SelectedMedicationService).selectedId.set('aspirin')
+
+      expect(fixture.componentInstance.selectedMedicationId()).toBe('aspirin')
+    })
+
+    it('changing the filter here is visible to the Medications page', () => {
+      const { fixture } = setup()
+
+      fixture.componentInstance.selectedMedicationId.set('ibuprofen')
+
+      expect(TestBed.inject(SelectedMedicationService).selectedId()).toBe(
+        'ibuprofen',
+      )
     })
   })
 })

@@ -5,7 +5,6 @@ import {
   computed,
   effect,
   inject,
-  signal,
 } from '@angular/core'
 import { toSignal } from '@angular/core/rxjs-interop'
 import { FormsModule } from '@angular/forms'
@@ -14,6 +13,7 @@ import { SeverityBadgeComponent } from '../../shared/severity-badge.component'
 import { MedicationService } from '../../services/medication.service'
 import { PatientService } from '../../services/patient.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
+import { SelectedMedicationService } from '../../services/selected-medication.service'
 import type { Medication } from '../../models/medication.model'
 import type { Patient } from '../../models/patient.model'
 import type {
@@ -239,12 +239,13 @@ export class InteractionsComponent {
 
   /** Optional filter narrowing the report below to one medication's
    * findings — supplements the default all-medications view rather than
-   * replacing it (per-page state, not shared with MedicationsComponent's own
-   * selectedId; see TODO.md #5/#6). `null` shows every finding. A deleted
-   * selection is reset back to `null` by the reconcile effect below, not
-   * handled here. Public (like MedicationsComponent.selectedId), not
+   * replacing it. Shared with MedicationsComponent via
+   * SelectedMedicationService (see TODO.md #6), so selecting a medication on
+   * either page carries over to the other. `null` shows every finding. A
+   * deleted selection is reset back to `null` by the reconcile effect below,
+   * not handled here. Public (like MedicationsComponent.selectedId), not
    * protected, so tests can drive it directly — see this file's spec. */
-  readonly selectedMedicationId = signal<string | null>(null)
+  readonly selectedMedicationId = inject(SelectedMedicationService).selectedId
 
   /** The selected medication's display name, for the filtered empty-state
    * message below. `?? id` is a harmless backstop for the brief render
