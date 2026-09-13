@@ -94,6 +94,13 @@
   }
 }
 
+// Fixed column width so .finding-body lines up regardless of badge label
+// length (minor/moderate/major).
+app-severity-badge {
+  flex: 0 0 auto;
+  min-width: 6rem;
+}
+
 .finding-body {
   flex: 1;
   min-width: 0;

@@ -64,7 +64,7 @@ check it off. Each entry has enough pointers to start cold. Terms
     to also run the manual functions deploy — nothing currently reminds or
     enforces this.
 
-- [ ] **4. Align finding rows instead of letting badge width push text out of line**
+- [x] **4. Align finding rows instead of letting badge width push text out of line**
   - `.finding` in both `interactions.component.scss:85-95` and the
     equivalent in `medications.component.scss` lays out badge + text with
     `display: flex; gap: 0.75rem` — different badge label lengths

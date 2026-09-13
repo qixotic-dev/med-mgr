@@ -229,6 +229,13 @@
   }
 }
 
+// Fixed column width so .finding-detail lines up regardless of badge label
+// length (minor/moderate/major).
+app-severity-badge {
+  flex: 0 0 auto;
+  min-width: 6rem;
+}
+
 .finding-detail {
   margin: 0;
   color: var(--muted);
