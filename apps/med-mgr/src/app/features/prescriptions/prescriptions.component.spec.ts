@@ -17,6 +17,14 @@ describe('PrescriptionsComponent', () => {
     intervalDays: 30,
   }
 
+  const medication2: Medication = {
+    id: 'med-2',
+    commonName: 'Other Med',
+    dose: '5mg',
+    category: 'General',
+    intervalDays: 14,
+  }
+
   const savedPrescription: Prescription = {
     medicationId: 'med-1',
     pharmacyName: 'Real Pharmacy',
@@ -220,7 +228,7 @@ describe('PrescriptionsComponent', () => {
       expect(component.isScheduling()).toBe(false)
     })
 
-    it('clears error() when selecting a different medication', async () => {
+    it('clears error() when reselecting the same medication', async () => {
       const fixture = setup()
       const component = fixture.componentInstance
       component.select('med-1')
@@ -230,6 +238,74 @@ describe('PrescriptionsComponent', () => {
 
       component.select('med-1')
 
+      expect(component.error()).toBeNull()
+    })
+
+    /** Registers a second medication alongside 'med-1' -- the shared
+     * setup() only has one, which can't exercise a scheduling operation
+     * outliving a switch to a *different* medication. */
+    function setupWithTwoMedications() {
+      prescriptions$ = new BehaviorSubject<Prescription[]>([])
+      scheduleReminderSpy = jest.fn().mockResolvedValue(undefined)
+      TestBed.configureTestingModule({
+        imports: [PrescriptionsComponent],
+        providers: [
+          {
+            provide: MedicationService,
+            useValue: {
+              all$: new BehaviorSubject<Medication[]>([medication, medication2]),
+            },
+          },
+          { provide: PrescriptionService, useValue: { all$: prescriptions$ } },
+          {
+            provide: CalendarService,
+            useValue: { scheduleReminder: scheduleReminderSpy },
+          },
+        ],
+      })
+      const fixture = TestBed.createComponent(PrescriptionsComponent)
+      fixture.detectChanges()
+      return fixture
+    }
+
+    it('does not leak a stale scheduling completion onto a medication switched to mid-flight', async () => {
+      // Caught by Copilot review on this item's PR: isScheduling()/error()
+      // used to be plain component-wide signals, so switching medications
+      // while a Calendar write was still in flight for the *previous*
+      // medication made the newly-selected one incorrectly show
+      // "Scheduling…", and a later failure wrote its error into the new
+      // medication's form instead of the one it was actually for.
+      const component = setupWithTwoMedications().componentInstance
+      component.select('med-1')
+      const deferred: { reject?: (err: Error) => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<void>((_resolve, reject) => {
+          deferred.reject = reject
+        }),
+      )
+
+      const stalePick = component.pickNextOrderDate('2026-10-01')
+      expect(component.isScheduling()).toBe(true)
+
+      component.select('med-2')
+      // The still-in-flight write belongs to med-1, not the newly-selected
+      // med-2 -- its form should read as idle, not "Scheduling…".
+      expect(component.isScheduling()).toBe(false)
+      expect(component.error()).toBeNull()
+
+      deferred.reject?.(new Error('boom'))
+      await stalePick
+
+      // The failure is med-1's, so it must not appear while med-2 is
+      // selected.
+      expect(component.isScheduling()).toBe(false)
+      expect(component.error()).toBeNull()
+
+      // select() always starts from a clean slate (matches
+      // MedicationsComponent.select()), so switching back to med-1 doesn't
+      // resurface the stale error either -- it's not a persistent flag on
+      // the medication, just feedback for the attempt that just ran.
+      component.select('med-1')
       expect(component.error()).toBeNull()
     })
   })
