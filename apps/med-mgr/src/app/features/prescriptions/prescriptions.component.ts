@@ -263,6 +263,23 @@ export class PrescriptionsComponent {
     )
   }
 
+  /** Whether the Clear button should be enabled -- true while there's a
+   * next-order date *or* a Calendar event still on record for it to act on.
+   * Checked as "either field", not just nextOrderDate: a failed
+   * clearSchedule() deliberately leaves calendarEventId set (see its doc
+   * comment) even after nextOrderDate has already gone optimistically null,
+   * and gating on nextOrderDate alone made that failure's event permanently
+   * unreachable through the UI -- there was no way left to retry the delete
+   * (caught by Copilot review on this item's PR). */
+  canClearSchedule(): boolean {
+    const draft = this.draft
+    return (
+      !this.isCalendarBusy() &&
+      !!draft &&
+      (draft.nextOrderDate !== null || draft.calendarEventId !== null)
+    )
+  }
+
   async save(): Promise<void> {
     const medicationId = this.selectedId()
     const draft = this.draft
@@ -274,6 +291,8 @@ export class PrescriptionsComponent {
     // reading them again after the await would record whatever the user
     // has typed *since* Save was clicked, not what was actually persisted.
     const submitted = { ...draft }
+    // nextOrderDate/calendarEventId deliberately omitted -- saveSchedule()
+    // is their sole writer (see PrescriptionService.save()'s doc comment).
     await this.prescriptionService.save(medicationId, {
       pharmacyName: submitted.pharmacyName,
       pharmacyPhone: submitted.pharmacyPhone,
@@ -282,8 +301,6 @@ export class PrescriptionsComponent {
       prescriberPhone: submitted.prescriberPhone,
       howToOrder: submitted.howToOrder,
       lastOrderDate: submitted.lastOrderDate,
-      nextOrderDate: submitted.nextOrderDate,
-      calendarEventId: submitted.calendarEventId,
       scheduleNotes: submitted.scheduleNotes,
     })
     // Only adopt this as the new baseline if the user is still on the same

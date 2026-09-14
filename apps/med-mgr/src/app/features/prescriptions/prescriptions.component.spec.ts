@@ -516,6 +516,10 @@ describe('PrescriptionsComponent', () => {
       expect(saveScheduleSpy).not.toHaveBeenCalled()
       // Optimistic, matching pickNextOrderDate()'s same pattern.
       expect(component.draft?.nextOrderDate).toBeNull()
+      // The button must stay enabled so the user can retry the delete --
+      // otherwise this event is unreachable through the UI forever (caught
+      // by Copilot review on this item's PR).
+      expect(component.canClearSchedule()).toBe(true)
     })
 
     it('is blocked while a pick is in flight, and vice versa', async () => {
@@ -538,6 +542,83 @@ describe('PrescriptionsComponent', () => {
 
       deferred.resolve?.('new-event-id')
       await picking
+    })
+  })
+
+  describe('canClearSchedule', () => {
+    it('is false when neither a date nor an event is on record', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+
+      expect(component.canClearSchedule()).toBe(false)
+    })
+
+    it('is true when only calendarEventId remains (the failed-clear case)', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      if (component.draft === null) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft = {
+        ...component.draft,
+        nextOrderDate: null,
+        calendarEventId: 'event-1',
+      }
+
+      expect(component.canClearSchedule()).toBe(true)
+    })
+
+    it('is false while a Calendar write is in flight', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      prescriptions$.next([savedPrescription])
+      await fixture.whenStable()
+      component.select('med-1')
+      const deferred: { resolve?: (id: string) => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<string>((resolve) => {
+          deferred.resolve = resolve
+        }),
+      )
+
+      const picking = component.pickNextOrderDate('2026-10-01')
+
+      expect(component.canClearSchedule()).toBe(false)
+
+      deferred.resolve?.('new-event-id')
+      await picking
+    })
+  })
+
+  describe('save', () => {
+    it('does not send nextOrderDate/calendarEventId -- saveSchedule() is their sole writer', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      if (component.draft === null) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft = {
+        ...component.draft,
+        pharmacyName: 'Real Pharmacy',
+        pharmacyPhone: '555-0100',
+        prescriberName: 'Dr. Real',
+        prescriberPhone: '555-0200',
+        nextOrderDate: '2026-09-01',
+        calendarEventId: 'event-1',
+      }
+
+      await component.save()
+
+      expect(saveSpy).toHaveBeenCalledTimes(1)
+      const sent = saveSpy.mock.calls[0][1] as Record<string, unknown>
+      // Absent, not just falsy -- a merge write with an explicit null would
+      // still clobber Firestore's real value, the same bug this omission
+      // exists to prevent.
+      expect(sent).not.toHaveProperty('nextOrderDate')
+      expect(sent).not.toHaveProperty('calendarEventId')
     })
   })
 

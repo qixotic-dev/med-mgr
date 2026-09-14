@@ -4,6 +4,7 @@ import { MedicationService } from '../../services/medication.service'
 import { PrescriptionService } from '../../services/prescription.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
 import { SelectedMedicationService } from '../../services/selected-medication.service'
+import { CalendarSchedulingService } from '../../services/calendar-scheduling.service'
 import { CalendarService } from '../../core/calendar.service'
 import type { Medication } from '../../models/medication.model'
 import type { Prescription } from '../../models/prescription.model'
@@ -722,6 +723,60 @@ describe('MedicationsComponent', () => {
 
       expect(component.error()).toBeNull()
       expect(component.selectedId()).toBeNull()
+    })
+
+    it('holds isDeleting and the shared scheduling lock until the Calendar cleanup finishes', async () => {
+      // Caught by Copilot review on this item's PR: isDeleting used to clear
+      // (re-enabling Delete) the instant the Firestore delete alone
+      // finished, letting a second delete -- or a pick/clear elsewhere
+      // sharing CalendarSchedulingService's lock -- run concurrently with
+      // this cleanup's own ensureAccessToken()/signInWithPopup(), the exact
+      // popup-cancellation TODO.md #12 exists to prevent.
+      const fixture = setup(
+        undefined,
+        undefined,
+        new BehaviorSubject<Prescription[]>([aspirinPrescription]),
+      )
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+      const medicationDeleteDeferred: { resolve?: () => void } = {}
+      deleteSpy.mockReturnValue(
+        new Promise<void>((resolve) => {
+          medicationDeleteDeferred.resolve = resolve
+        }),
+      )
+      const calendarDeleteDeferred: { resolve?: () => void } = {}
+      deleteReminderSpy.mockReturnValue(
+        new Promise<void>((resolve) => {
+          calendarDeleteDeferred.resolve = resolve
+        }),
+      )
+
+      const deleting = component.delete()
+      // Resolve the Firestore delete and let its `await` continuation run
+      // (one microtask tick) -- delete() should now be suspended on the
+      // still-pending Calendar cleanup below, not finished.
+      medicationDeleteDeferred.resolve?.()
+      await Promise.resolve()
+
+      expect(component.isDeleting()).toBe(true)
+      expect(
+        TestBed.inject(CalendarSchedulingService).schedulingMedicationId(),
+      ).toBe('aspirin')
+
+      // A second delete (this or another medication) must no-op while the
+      // first's Calendar cleanup is still in flight.
+      await component.delete()
+      expect(deleteSpy).toHaveBeenCalledTimes(1)
+
+      calendarDeleteDeferred.resolve?.()
+      await deleting
+
+      expect(component.isDeleting()).toBe(false)
+      expect(
+        TestBed.inject(CalendarSchedulingService).schedulingMedicationId(),
+      ).toBeNull()
     })
   })
 
