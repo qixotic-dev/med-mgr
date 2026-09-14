@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   inject,
+  signal,
 } from '@angular/core'
 import { toSignal } from '@angular/core/rxjs-interop'
 import { FormsModule } from '@angular/forms'
@@ -108,6 +109,19 @@ export class PrescriptionsComponent {
   /** Whether the one-time hydration effect below has already run. */
   private hydratedSelection = false
 
+  /** Set by pickNextOrderDate() when the Calendar write fails -- mirrors
+   * MedicationsComponent's identical `error` signal/pattern. */
+  readonly error = signal<string | null>(null)
+
+  /** In-flight guard for pickNextOrderDate() -- mirrors isDeleting/
+   * isRegenerating in MedicationsComponent (see TODO.md #8). Also stops a
+   * second, overlapping call from re-entering scheduleReminder() while the
+   * first is still waiting on its Google sign-in popup: two concurrent
+   * signInWithPopup() calls cancel each other with a
+   * `auth/cancelled-popup-request` error, reproduced live against the
+   * deployed app while diagnosing this item. */
+  readonly isScheduling = signal(false)
+
   constructor() {
     // Loads `draft` from a selection already made on the Medications/
     // Interactions pages before this page was ever mounted -- selectedId is
@@ -154,6 +168,7 @@ export class PrescriptionsComponent {
         this.selectedId.set(null)
         this.draft = null
         this.draftBaseline = null
+        this.error.set(null)
         // A plain field write from a reactive effect (not a template event
         // binding), so it needs an explicit nudge to reach the OnPush view.
         this.changeDetectorRef.markForCheck()
@@ -199,6 +214,7 @@ export class PrescriptionsComponent {
 
   select(medicationId: string): void {
     this.selectedId.set(medicationId)
+    this.error.set(null)
     const existing = this.prescriptions().find(
       (p) => p.medicationId === medicationId,
     )
@@ -250,18 +266,34 @@ export class PrescriptionsComponent {
   }
 
   /** Picking a date both updates the draft and, matching the old app,
-   * immediately creates the Calendar reminder — independent of Save. */
+   * immediately creates the Calendar reminder — independent of Save.
+   * CalendarService.scheduleReminder() can throw (expired/missing token,
+   * a blocked or dismissed Google sign-in popup, a Calendar API error) --
+   * previously this was awaited with no try/catch, so a real failure
+   * surfaced nothing to the user: the badge still updated (the draft write
+   * above happens unconditionally) as if a reminder had been scheduled,
+   * while the Calendar API was never actually reached. Confirmed live
+   * against the deployed app: a `signInWithPopup` failure/cancellation
+   * threw before any request to googleapis.com/calendar/v3 was made. */
   async pickNextOrderDate(nextOrderDate: DateKey): Promise<void> {
     const medication = this.selectedMedication()
-    if (!medication || !this.draft) {
+    if (!medication || !this.draft || this.isScheduling()) {
       return
     }
     this.draft = { ...this.draft, nextOrderDate }
-    await this.calendarService.scheduleReminder(
-      medication,
-      nextOrderDate,
-      this.draft.howToOrder,
-    )
+    this.isScheduling.set(true)
+    this.error.set(null)
+    try {
+      await this.calendarService.scheduleReminder(
+        medication,
+        nextOrderDate,
+        this.draft.howToOrder,
+      )
+    } catch {
+      this.error.set('Failed to schedule calendar reminder. Please try again.')
+    } finally {
+      this.isScheduling.set(false)
+    }
   }
 }
 

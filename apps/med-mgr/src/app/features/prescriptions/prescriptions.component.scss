@@ -81,6 +81,22 @@
   }
 }
 
+.error {
+  color: var(--danger);
+  margin: 0 0 1rem;
+}
+
+.status-note {
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  margin: 0;
+
+  &.pending {
+    background: var(--border);
+    color: var(--muted);
+  }
+}
+
 .detail-form {
   display: flex;
   flex-direction: column;

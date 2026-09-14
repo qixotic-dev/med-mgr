@@ -33,10 +33,12 @@ describe('PrescriptionsComponent', () => {
 
   let prescriptions$: BehaviorSubject<Prescription[]>
   let saveSpy: jest.Mock
+  let scheduleReminderSpy: jest.Mock
 
   function setup() {
     prescriptions$ = new BehaviorSubject<Prescription[]>([])
     saveSpy = jest.fn().mockResolvedValue(undefined)
+    scheduleReminderSpy = jest.fn().mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       imports: [PrescriptionsComponent],
       providers: [
@@ -48,7 +50,10 @@ describe('PrescriptionsComponent', () => {
           provide: PrescriptionService,
           useValue: { all$: prescriptions$, save: saveSpy },
         },
-        { provide: CalendarService, useValue: { scheduleReminder: jest.fn() } },
+        {
+          provide: CalendarService,
+          useValue: { scheduleReminder: scheduleReminderSpy },
+        },
       ],
     })
     const fixture = TestBed.createComponent(PrescriptionsComponent)
@@ -149,6 +154,84 @@ describe('PrescriptionsComponent', () => {
     await fixture.whenStable()
 
     expect(component.draft?.pharmacyName).toBe('Newer Edit')
+  })
+
+  describe('pickNextOrderDate', () => {
+    it('surfaces an error and clears isScheduling when the Calendar write fails', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      scheduleReminderSpy.mockRejectedValue(new Error('boom'))
+
+      const picking = component.pickNextOrderDate('2026-10-01')
+      expect(component.isScheduling()).toBe(true)
+      await picking
+
+      expect(component.isScheduling()).toBe(false)
+      expect(component.error()).toBe(
+        'Failed to schedule calendar reminder. Please try again.',
+      )
+      // The draft still reflects the picked date -- matches the old app's
+      // behavior of updating the field independent of the Calendar write.
+      expect(component.draft?.nextOrderDate).toBe('2026-10-01')
+    })
+
+    it('clears a previous error once a retry succeeds', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      scheduleReminderSpy.mockRejectedValueOnce(new Error('boom'))
+      await component.pickNextOrderDate('2026-10-01')
+      expect(component.error()).not.toBeNull()
+
+      scheduleReminderSpy.mockResolvedValueOnce(undefined)
+      await component.pickNextOrderDate('2026-10-02')
+
+      expect(component.error()).toBeNull()
+    })
+
+    it('ignores a second pick while the first is still in flight', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      const deferred: { resolve?: () => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<void>((resolve) => {
+          deferred.resolve = resolve
+        }),
+      )
+
+      const first = component.pickNextOrderDate('2026-10-01')
+      expect(component.isScheduling()).toBe(true)
+      // Overlapping call while the first is still awaiting its Calendar
+      // write -- two concurrent signInWithPopup() calls would otherwise
+      // cancel each other (see pickNextOrderDate's doc comment).
+      await component.pickNextOrderDate('2026-10-02')
+
+      expect(scheduleReminderSpy).toHaveBeenCalledTimes(1)
+      expect(component.draft?.nextOrderDate).toBe('2026-10-01')
+      // isScheduling() (and so the template's "Scheduling…" note) is still
+      // true here -- an indefinitely stuck popup reads as "still working",
+      // not a silent no-op, which is the class of bug this item is about.
+      expect(component.isScheduling()).toBe(true)
+
+      deferred.resolve?.()
+      await first
+      expect(component.isScheduling()).toBe(false)
+    })
+
+    it('clears error() when selecting a different medication', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      scheduleReminderSpy.mockRejectedValue(new Error('boom'))
+      await component.pickNextOrderDate('2026-10-01')
+      expect(component.error()).not.toBeNull()
+
+      component.select('med-1')
+
+      expect(component.error()).toBeNull()
+    })
   })
 
   describe('cross-tab selection (SelectedMedicationService)', () => {
