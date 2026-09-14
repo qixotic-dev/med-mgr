@@ -30,7 +30,7 @@
         </header>
 
         @if (error(); as message) {
-          <p class="error">{{ message }}</p>
+          <p class="error" role="alert">{{ message }}</p>
         }
 
         <form class="detail-form" (ngSubmit)="save()">
@@ -109,7 +109,12 @@
               />
               <app-status-badge [nextOrderDate]="draft.nextOrderDate" />
               @if (isScheduling()) {
-                <span class="status-note pending">Scheduling…</span>
+                <span
+                  class="status-note pending"
+                  role="status"
+                  aria-live="polite"
+                  >Scheduling…</span
+                >
               }
             </div>
           </div>
