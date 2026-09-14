@@ -6,7 +6,9 @@
     [attr.aria-expanded]="isOpen()"
     [attr.aria-label]="'Choose a date, currently ' + selected()"
     [disabled]="disabled()"
-    [attr.title]="disabled() ? 'A calendar update is already in progress' : null"
+    [attr.title]="
+      disabled() ? 'A calendar update is already in progress' : null
+    "
     (click)="toggle()"
   >
     📅 {{ selected() }}
