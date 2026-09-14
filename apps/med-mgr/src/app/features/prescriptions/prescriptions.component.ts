@@ -283,6 +283,7 @@ export class PrescriptionsComponent {
       howToOrder: submitted.howToOrder,
       lastOrderDate: submitted.lastOrderDate,
       nextOrderDate: submitted.nextOrderDate,
+      calendarEventId: submitted.calendarEventId,
       scheduleNotes: submitted.scheduleNotes,
     })
     // Only adopt this as the new baseline if the user is still on the same
@@ -313,14 +314,43 @@ export class PrescriptionsComponent {
       return
     }
     const medicationId = medication.id
+    const existingEventId = this.draft.calendarEventId
     this.draft = { ...this.draft, nextOrderDate }
     this.calendarScheduling.schedulingMedicationId.set(medicationId)
     this.calendarScheduling.failure.set(null)
     try {
-      await this.calendarService.scheduleReminder(
+      const calendarEventId = await this.calendarService.scheduleReminder(
         medication,
         nextOrderDate,
         this.draft.howToOrder,
+        existingEventId,
+      )
+      // Adopted into the draft *before* the Firestore write below, not
+      // after: if saveSchedule() throws, this session's own next pick still
+      // must target the event scheduleReminder() actually just created/
+      // moved, not the stale id it was called with -- otherwise a
+      // saveSchedule() failure here would silently orphan that event on the
+      // very next pick, the exact bug TODO.md #13 exists to close. Only
+      // while the user is still on this medication -- mirrors save()'s
+      // guard; a stale completion for a medication switched away from must
+      // not land in whatever draft is now showing.
+      if (this.selectedId() === medicationId && this.draft) {
+        this.draft = { ...this.draft, calendarEventId }
+      }
+      // Persisted immediately, independent of Save, matching how the
+      // Calendar write itself is independent of Save -- otherwise a picked
+      // date whose event id is never saved (the user navigates away without
+      // clicking Save) would be un-trackable next time, leaving the next
+      // pick unable to replace it (TODO.md #13's original bug, one layer
+      // deeper). If this specific write fails, the Firestore doc is left
+      // stale (still pointing at the old id/date) until a later successful
+      // pick or Save overwrites it -- the draft above is already correct,
+      // so this session doesn't orphan anything; only a reload before that
+      // happens would see the stale doc.
+      await this.prescriptionService.saveSchedule(
+        medicationId,
+        nextOrderDate,
+        calendarEventId,
       )
     } catch (error: unknown) {
       const message =
@@ -338,12 +368,59 @@ export class PrescriptionsComponent {
       this.calendarScheduling.schedulingMedicationId.set(null)
     }
   }
+
+  /** Clears a scheduled next-order date, including deleting its Calendar
+   * event (TODO.md #13 -- "no way to remove a schedule"). Mirrors
+   * pickNextOrderDate()'s shape (same lock, same in-flight/error signals) so
+   * a clear and a pick can never race each other. Unlike pickNextOrderDate,
+   * a failed delete leaves `calendarEventId` untouched rather than nulling
+   * it, so nothing is orphaned -- a retry, or a later pick reusing the same
+   * id via scheduleReminder()'s update-in-place, can still reach it.
+   * `nextOrderDate` clears optimistically either way, matching
+   * pickNextOrderDate()'s "the field updates independent of the Calendar
+   * write" behavior. */
+  async clearSchedule(): Promise<void> {
+    const medication = this.selectedMedication()
+    if (
+      !medication ||
+      !this.draft ||
+      this.calendarScheduling.schedulingMedicationId() !== null
+    ) {
+      return
+    }
+    const medicationId = medication.id
+    const eventId = this.draft.calendarEventId
+    this.draft = { ...this.draft, nextOrderDate: null }
+    this.calendarScheduling.schedulingMedicationId.set(medicationId)
+    this.calendarScheduling.failure.set(null)
+    try {
+      if (eventId) {
+        await this.calendarService.deleteReminder(eventId)
+      }
+      await this.prescriptionService.saveSchedule(medicationId, null, null)
+      if (this.selectedId() === medicationId && this.draft) {
+        this.draft = { ...this.draft, calendarEventId: null }
+      }
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : 'Failed to clear the calendar reminder. Please try again.'
+      this.calendarScheduling.failure.set({
+        medicationId,
+        message,
+      })
+    } finally {
+      this.calendarScheduling.schedulingMedicationId.set(null)
+    }
+  }
 }
 
-/** Compares the user-editable fields only — ignores `medicationId` and the
- * server-set `updatedAt`, so a freshly-fetched Prescription can be compared
- * against a draft the user hasn't touched yet. Exported for direct unit
- * testing. */
+/** Compares the user-editable fields only — ignores `medicationId`, the
+ * server-set `updatedAt`, and `calendarEventId` (machine-set by
+ * pickNextOrderDate()/clearSchedule(), like updatedAt, not something the
+ * user edits) — so a freshly-fetched Prescription can be compared against a
+ * draft the user hasn't touched yet. Exported for direct unit testing. */
 export function isSamePrescriptionData(
   a: Prescription,
   b: Prescription,

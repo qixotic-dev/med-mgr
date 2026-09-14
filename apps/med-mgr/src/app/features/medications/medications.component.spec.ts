@@ -1,9 +1,12 @@
 import { TestBed } from '@angular/core/testing'
 import { BehaviorSubject, Observable, Subject } from 'rxjs'
 import { MedicationService } from '../../services/medication.service'
+import { PrescriptionService } from '../../services/prescription.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
 import { SelectedMedicationService } from '../../services/selected-medication.service'
+import { CalendarService } from '../../core/calendar.service'
 import type { Medication } from '../../models/medication.model'
+import type { Prescription } from '../../models/prescription.model'
 import type { InteractionReport } from '../../models/interaction-report.model'
 import {
   categoryOptionValue,
@@ -29,10 +32,26 @@ describe('MedicationsComponent', () => {
     intervalDays: 30,
   }
 
+  const aspirinPrescription: Prescription = {
+    medicationId: 'aspirin',
+    pharmacyName: 'Real Pharmacy',
+    pharmacyPhone: '555-0100',
+    pharmacyAddress: '',
+    prescriberName: 'Dr. Real',
+    prescriberPhone: '555-0200',
+    howToOrder: '',
+    lastOrderDate: null,
+    nextOrderDate: '2026-09-01',
+    calendarEventId: 'event-1',
+    scheduleNotes: '',
+    updatedAt: null,
+  }
+
   let createSpy: jest.Mock
   let updateSpy: jest.Mock
   let deleteSpy: jest.Mock
   let regenerateInfoOnDemandSpy: jest.Mock
+  let deleteReminderSpy: jest.Mock
 
   function setup(
     source: Observable<Medication[]> = new BehaviorSubject([
@@ -42,11 +61,15 @@ describe('MedicationsComponent', () => {
     report$: Observable<InteractionReport | undefined> = new BehaviorSubject<
       InteractionReport | undefined
     >(undefined),
+    prescriptions$: Observable<Prescription[]> = new BehaviorSubject<
+      Prescription[]
+    >([]),
   ) {
     createSpy = jest.fn().mockResolvedValue(undefined)
     updateSpy = jest.fn().mockResolvedValue(undefined)
     deleteSpy = jest.fn().mockResolvedValue(undefined)
     regenerateInfoOnDemandSpy = jest.fn().mockResolvedValue(undefined)
+    deleteReminderSpy = jest.fn().mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       imports: [MedicationsComponent],
       providers: [
@@ -59,6 +82,14 @@ describe('MedicationsComponent', () => {
             delete: deleteSpy,
             regenerateInfoOnDemand: regenerateInfoOnDemandSpy,
           },
+        },
+        {
+          provide: PrescriptionService,
+          useValue: { all$: prescriptions$ },
+        },
+        {
+          provide: CalendarService,
+          useValue: { deleteReminder: deleteReminderSpy },
         },
         {
           provide: InteractionReportService,
@@ -645,6 +676,53 @@ describe('MedicationsComponent', () => {
 
       expect(component.isDeleting()).toBe(false)
     })
+
+    it('best-effort deletes the Calendar event for a medication that had one scheduled', async () => {
+      const fixture = setup(
+        undefined,
+        undefined,
+        new BehaviorSubject<Prescription[]>([aspirinPrescription]),
+      )
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+
+      await component.delete()
+
+      expect(deleteReminderSpy).toHaveBeenCalledWith('event-1')
+    })
+
+    it('does not call the Calendar API when nothing was scheduled', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+
+      await component.delete()
+
+      expect(deleteReminderSpy).not.toHaveBeenCalled()
+    })
+
+    it('still succeeds, with no error, if the best-effort Calendar delete fails', async () => {
+      // TODO.md #13: a stray Calendar event is a much smaller problem than a
+      // medication the user can't remove -- the Firestore delete already
+      // committed by the time this runs, so it must not be treated as a
+      // failure of delete() itself.
+      const fixture = setup(
+        undefined,
+        undefined,
+        new BehaviorSubject<Prescription[]>([aspirinPrescription]),
+      )
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+      deleteReminderSpy.mockRejectedValue(new Error('boom'))
+
+      await component.delete()
+
+      expect(component.error()).toBeNull()
+      expect(component.selectedId()).toBeNull()
+    })
   })
 
   describe('reconcile effect', () => {
@@ -974,6 +1052,14 @@ describe('MedicationsComponent', () => {
             },
           },
           {
+            provide: PrescriptionService,
+            useValue: { all$: new BehaviorSubject<Prescription[]>([]) },
+          },
+          {
+            provide: CalendarService,
+            useValue: { deleteReminder: jest.fn() },
+          },
+          {
             provide: InteractionReportService,
             useValue: {
               report$: new BehaviorSubject<InteractionReport | undefined>(
@@ -1035,6 +1121,14 @@ describe('MedicationsComponent', () => {
               delete: deleteSpy,
               regenerateInfoOnDemand: regenerateInfoOnDemandSpy,
             },
+          },
+          {
+            provide: PrescriptionService,
+            useValue: { all$: new BehaviorSubject<Prescription[]>([]) },
+          },
+          {
+            provide: CalendarService,
+            useValue: { deleteReminder: jest.fn() },
           },
           {
             provide: InteractionReportService,

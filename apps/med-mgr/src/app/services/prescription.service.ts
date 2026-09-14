@@ -24,6 +24,7 @@ interface PrescriptionDoc {
   howToOrder: string
   lastOrderDate: DateKey | null
   nextOrderDate: DateKey | null
+  calendarEventId: string | null
   scheduleNotes: string
   updatedAt: Timestamp | null
 }
@@ -33,7 +34,10 @@ function toPrescription(
   data: PrescriptionDoc,
 ): Prescription {
   return {
-    medicationId,
+    // Defaults for fields a doc doesn't have -- either a pre-existing prod
+    // doc that predates calendarEventId, or one saveSchedule() created
+    // holding only nextOrderDate/calendarEventId (see its doc comment).
+    ...emptyPrescription(medicationId),
     ...data,
     updatedAt: data.updatedAt ? data.updatedAt.toDate() : null,
   }
@@ -77,6 +81,26 @@ export class PrescriptionService {
     await setDoc(
       doc(this.firestore, PRESCRIPTIONS_COLLECTION, medicationId),
       { ...changes, updatedAt: Timestamp.now() },
+      { merge: true },
+    )
+  }
+
+  /** Persists just `nextOrderDate` and its Calendar event id, independent of
+   * `save()` -- called immediately after a Calendar write
+   * (PrescriptionsComponent.pickNextOrderDate()/clearSchedule()), which must
+   * not wait for the user to click Save, and must not flush whatever
+   * possibly-unsaved pharmacy/prescriber fields are sitting in the draft.
+   * Merges rather than requiring the doc to already exist -- a schedule
+   * picked before any other field was ever saved creates a doc holding only
+   * these fields; toPrescription() backfills the rest on read. */
+  async saveSchedule(
+    medicationId: string,
+    nextOrderDate: DateKey | null,
+    calendarEventId: string | null,
+  ): Promise<void> {
+    await setDoc(
+      doc(this.firestore, PRESCRIPTIONS_COLLECTION, medicationId),
+      { nextOrderDate, calendarEventId, updatedAt: Timestamp.now() },
       { merge: true },
     )
   }

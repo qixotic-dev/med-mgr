@@ -11,8 +11,10 @@ import { toSignal } from '@angular/core/rxjs-interop'
 import { FormsModule } from '@angular/forms'
 import { SeverityBadgeComponent } from '../../shared/severity-badge.component'
 import { MedicationService } from '../../services/medication.service'
+import { PrescriptionService } from '../../services/prescription.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
 import { SelectedMedicationService } from '../../services/selected-medication.service'
+import { CalendarService } from '../../core/calendar.service'
 import type { Medication } from '../../models/medication.model'
 import {
   filterFindingsByMedication,
@@ -133,8 +135,18 @@ export function isSameMedicationData(
 })
 export class MedicationsComponent {
   private readonly medicationService = inject(MedicationService)
+  private readonly prescriptionService = inject(PrescriptionService)
+  private readonly calendarService = inject(CalendarService)
   private readonly interactionReportService = inject(InteractionReportService)
   private readonly changeDetectorRef = inject(ChangeDetectorRef)
+
+  /** Only consulted by delete(), to best-effort clean up a Calendar event
+   * left scheduled for the medication being removed (TODO.md #13) --
+   * MedicationsComponent otherwise has no reason to know about
+   * Prescriptions. */
+  private readonly prescriptions = toSignal(this.prescriptionService.all$, {
+    initialValue: [],
+  })
 
   protected readonly NEW_CATEGORY_OPTION = NEW_CATEGORY_OPTION
   protected readonly categoryOptionValue = categoryOptionValue
@@ -449,6 +461,12 @@ export class MedicationsComponent {
     if (!window.confirm(`Delete ${name}? This cannot be undone.`)) {
       return
     }
+    // Read before the delete below removes the Prescription doc this comes
+    // from -- captured here, not after, so a delete can't race the
+    // Firestore listener updating prescriptions() out from under it.
+    const calendarEventId = this.prescriptions().find(
+      (p) => p.medicationId === id,
+    )?.calendarEventId
     this.isDeleting.set(true)
     this.error.set(null)
     try {
@@ -458,6 +476,15 @@ export class MedicationsComponent {
       return
     } finally {
       this.isDeleting.set(false)
+    }
+    if (calendarEventId) {
+      // Best-effort (TODO.md #13): a Calendar failure -- expired token,
+      // blocked popup, API error -- must never undo or block a medication
+      // delete that already succeeded. A stray Calendar event is a much
+      // smaller problem than a medication the user can't remove.
+      await this.calendarService.deleteReminder(calendarEventId).catch(() => {
+        /* best-effort -- see comment above */
+      })
     }
     // Only clear the form if the user is still on this same selection --
     // otherwise this stale completion would clobber whatever they've since
