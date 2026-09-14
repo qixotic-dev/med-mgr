@@ -569,6 +569,23 @@ describe('MedicationsComponent', () => {
       expect(deleteSpy).toHaveBeenCalledWith('aspirin')
     })
 
+    it('waits for the first prescriptions snapshot before deleting', async () => {
+      const prescriptions$ = new Subject<Prescription[]>()
+      const fixture = setup(undefined, undefined, prescriptions$)
+      const component = fixture.componentInstance
+      component.select('aspirin')
+      jest.spyOn(window, 'confirm').mockReturnValue(true)
+
+      await component.delete()
+      expect(deleteSpy).not.toHaveBeenCalled()
+
+      prescriptions$.next([])
+      await fixture.whenStable()
+      await component.delete()
+
+      expect(deleteSpy).toHaveBeenCalledWith('aspirin')
+    })
+
     it('does nothing if nothing is selected', async () => {
       const fixture = setup()
       const confirmSpy = jest.spyOn(window, 'confirm')

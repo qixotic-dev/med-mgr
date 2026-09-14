@@ -155,7 +155,7 @@
             <button
               type="button"
               class="delete-button"
-              [disabled]="isDeleting()"
+              [disabled]="isDeleting() || !prescriptionsLoaded()"
               (click)="delete()"
             >
               {{ isDeleting() ? 'Deleting…' : 'Delete' }}

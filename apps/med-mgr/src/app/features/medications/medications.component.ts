@@ -151,9 +151,13 @@ export class MedicationsComponent {
    * left scheduled for the medication being removed (TODO.md #13) --
    * MedicationsComponent otherwise has no reason to know about
    * Prescriptions. */
-  private readonly prescriptions = toSignal(this.prescriptionService.all$, {
-    initialValue: [],
-  })
+  private readonly prescriptionsSnapshot = toSignal(this.prescriptionService.all$)
+  private readonly prescriptions = computed(
+    () => this.prescriptionsSnapshot() ?? [],
+  )
+  readonly prescriptionsLoaded = computed(
+    () => this.prescriptionsSnapshot() !== undefined,
+  )
 
   protected readonly NEW_CATEGORY_OPTION = NEW_CATEGORY_OPTION
   protected readonly categoryOptionValue = categoryOptionValue
@@ -459,6 +463,7 @@ export class MedicationsComponent {
     const id = this.selectedId()
     if (
       !id ||
+      !this.prescriptionsLoaded() ||
       this.isDeleting() ||
       this.calendarScheduling.schedulingMedicationId() !== null
     ) {
