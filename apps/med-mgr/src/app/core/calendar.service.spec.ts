@@ -112,6 +112,23 @@ describe('CalendarService', () => {
     )
   })
 
+  it('refreshes auth if the fallback POST returns 401', async () => {
+    ;(globalThis.fetch as jest.Mock)
+      .mockResolvedValueOnce(response(404))
+      .mockResolvedValueOnce(response(401))
+      .mockResolvedValueOnce(response(200, { id: 'new-event' }))
+
+    await service.scheduleReminder(med, '2026-12-31', 'Call ahead', 'event-1')
+
+    expect(signInWithGoogle).toHaveBeenCalledTimes(1)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3)
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      3,
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
   it('refreshes auth and retries once on 401 while scheduling', async () => {
     ;(globalThis.fetch as jest.Mock)
       .mockResolvedValueOnce(response(401))

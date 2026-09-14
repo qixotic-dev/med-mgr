@@ -58,6 +58,10 @@ export class CalendarService {
     }
     if (existingEventId && isGone(response.status)) {
       response = await putOrPostEvent(token, event, null)
+      if (response.status === 401) {
+        token = await this.ensureAccessToken({ forceRefresh: true })
+        response = await putOrPostEvent(token, event, null)
+      }
     }
     if (!response.ok) {
       throw new Error(`Calendar API error: ${response.status}`)
