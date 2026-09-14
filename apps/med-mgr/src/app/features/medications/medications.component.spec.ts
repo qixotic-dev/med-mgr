@@ -452,10 +452,17 @@ describe('MedicationsComponent', () => {
       expect(component.error()).toBeTruthy()
     })
 
-    it('selects the newly created medication even if the collection snapshot has not caught up yet', async () => {
+    it('selects the newly created medication even if the collection snapshot has not caught up yet, and keeps it selected after a flush', async () => {
       // The BehaviorSubject never re-emits after create() (createSpy doesn't
       // write back to it), so medications() still won't contain the new id
-      // once save() resolves -- selecting it must not depend on that.
+      // once save() resolves -- selecting it must not depend on that. The
+      // whenStable() flush below is the regression check for
+      // reconcileSelectedMedication's clearWhenMissing (TODO.md #14): with
+      // it left on for this page, the continuous clear-if-missing effect
+      // reads this exact "selected but not yet in medications()" state as
+      // "deleted" and immediately clears selectedId/draft straight back out
+      // once the effect flushes -- caught live by adding this flush while
+      // developing that extraction.
       const fixture = setup()
       const component = fixture.componentInstance
       component.startAdd()
@@ -470,6 +477,11 @@ describe('MedicationsComponent', () => {
       await component.save()
 
       expect(component.selectedId()).toBe('vitamin-d3')
+
+      await fixture.whenStable()
+
+      expect(component.selectedId()).toBe('vitamin-d3')
+      expect(component.draft).not.toBeNull()
     })
 
     it('clears isNewCategory after a successful update into a newly typed category', async () => {

@@ -15,6 +15,7 @@ import { MedicationService } from '../../services/medication.service'
 import { PatientService } from '../../services/patient.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
 import { SelectedMedicationService } from '../../services/selected-medication.service'
+import { reconcileSelectedMedication } from '../../services/selected-medication-reconciliation'
 import type { Medication } from '../../models/medication.model'
 import type { Patient } from '../../models/patient.model'
 import type {
@@ -334,25 +335,19 @@ export class InteractionsComponent {
   )
 
   constructor() {
-    effect(() => {
-      // Resets the filter back to "All medications" if the selected
-      // medication is deleted from another tab/device while this page has
-      // it filtered — otherwise the <select> would show a value with no
-      // matching <option> (blank) alongside a findings list that silently
-      // never explains why it's empty. Waits for medicationsLoaded() first:
-      // a selection hydrated from the shared service (see TODO.md #6) can
-      // already be non-null before this page's own Firestore snapshot has
-      // arrived, and medications() reads as [] either way (loading or
-      // genuinely empty) -- without this guard, a valid cross-tab selection
-      // would look identical to "was deleted" and get cleared before the
-      // real data even loads.
-      if (!this.medicationsLoaded()) {
-        return
-      }
-      const id = this.selectedMedicationId()
-      if (id && !this.medications().some((m) => m.id === id)) {
-        this.selectedMedicationId.set(null)
-      }
+    // Resets the filter back to "All medications" if the selected medication
+    // is deleted from another tab/device while this page has it filtered --
+    // otherwise the <select> would show a value with no matching <option>
+    // (blank) alongside a findings list that silently never explains why
+    // it's empty. This page has no per-selection state to hydrate (the
+    // shared id is used directly as the filter, not loaded into a draft), so
+    // onHydrated is unneeded -- see reconcileSelectedMedication's doc
+    // comment (TODO.md #14; previously hand-copied here as a single effect).
+    reconcileSelectedMedication({
+      selectedId: this.selectedMedicationId,
+      medications: this.medications,
+      medicationsLoaded: this.medicationsLoaded,
+      changeDetectorRef: this.changeDetectorRef,
     })
 
     effect(() => {
