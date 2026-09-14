@@ -29,6 +29,10 @@
           <span class="dose">{{ medication.dose }}</span>
         </header>
 
+        @if (error(); as message) {
+          <p class="error" role="alert">{{ message }}</p>
+        }
+
         <form class="detail-form" (ngSubmit)="save()">
           <label>
             <span>Pharmacy Name <span class="required">*</span></span>
@@ -100,9 +104,18 @@
                 [selected]="draft.nextOrderDate ?? today"
                 [minDate]="minPickableDate"
                 [maxDate]="maxPickableDate"
+                [disabled]="isCalendarBusy()"
                 (dateSelected)="pickNextOrderDate($event)"
               />
               <app-status-badge [nextOrderDate]="draft.nextOrderDate" />
+              @if (isScheduling()) {
+                <span
+                  class="status-note pending"
+                  role="status"
+                  aria-live="polite"
+                  >Scheduling…</span
+                >
+              }
             </div>
           </div>
 

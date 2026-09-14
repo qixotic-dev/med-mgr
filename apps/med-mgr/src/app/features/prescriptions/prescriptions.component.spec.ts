@@ -17,6 +17,14 @@ describe('PrescriptionsComponent', () => {
     intervalDays: 30,
   }
 
+  const medication2: Medication = {
+    id: 'med-2',
+    commonName: 'Other Med',
+    dose: '5mg',
+    category: 'General',
+    intervalDays: 14,
+  }
+
   const savedPrescription: Prescription = {
     medicationId: 'med-1',
     pharmacyName: 'Real Pharmacy',
@@ -33,10 +41,12 @@ describe('PrescriptionsComponent', () => {
 
   let prescriptions$: BehaviorSubject<Prescription[]>
   let saveSpy: jest.Mock
+  let scheduleReminderSpy: jest.Mock
 
   function setup() {
     prescriptions$ = new BehaviorSubject<Prescription[]>([])
     saveSpy = jest.fn().mockResolvedValue(undefined)
+    scheduleReminderSpy = jest.fn().mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       imports: [PrescriptionsComponent],
       providers: [
@@ -48,7 +58,10 @@ describe('PrescriptionsComponent', () => {
           provide: PrescriptionService,
           useValue: { all$: prescriptions$, save: saveSpy },
         },
-        { provide: CalendarService, useValue: { scheduleReminder: jest.fn() } },
+        {
+          provide: CalendarService,
+          useValue: { scheduleReminder: scheduleReminderSpy },
+        },
       ],
     })
     const fixture = TestBed.createComponent(PrescriptionsComponent)
@@ -149,6 +162,231 @@ describe('PrescriptionsComponent', () => {
     await fixture.whenStable()
 
     expect(component.draft?.pharmacyName).toBe('Newer Edit')
+  })
+
+  describe('pickNextOrderDate', () => {
+    it('surfaces the Calendar error and clears isScheduling when the write fails', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      scheduleReminderSpy.mockRejectedValue(new Error('boom'))
+
+      const picking = component.pickNextOrderDate('2026-10-01')
+      expect(component.isScheduling()).toBe(true)
+      await picking
+
+      expect(component.isScheduling()).toBe(false)
+      expect(component.error()).toBe('boom')
+      // The draft still reflects the picked date -- matches the old app's
+      // behavior of updating the field independent of the Calendar write.
+      expect(component.draft?.nextOrderDate).toBe('2026-10-01')
+    })
+
+    it('falls back to a generic message when a thrown value has no message', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      scheduleReminderSpy.mockRejectedValue('boom')
+
+      await component.pickNextOrderDate('2026-10-01')
+
+      expect(component.error()).toBe(
+        'Failed to schedule calendar reminder. Please try again.',
+      )
+    })
+
+    it('clears a previous error once a retry succeeds', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      scheduleReminderSpy.mockRejectedValueOnce(new Error('boom'))
+      await component.pickNextOrderDate('2026-10-01')
+      expect(component.error()).not.toBeNull()
+
+      scheduleReminderSpy.mockResolvedValueOnce(undefined)
+      await component.pickNextOrderDate('2026-10-02')
+
+      expect(component.error()).toBeNull()
+    })
+
+    it('ignores a second pick while the first is still in flight', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      const deferred: { resolve?: () => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<void>((resolve) => {
+          deferred.resolve = resolve
+        }),
+      )
+
+      const first = component.pickNextOrderDate('2026-10-01')
+      expect(component.isScheduling()).toBe(true)
+      // Overlapping call while the first is still awaiting its Calendar
+      // write -- two concurrent signInWithPopup() calls would otherwise
+      // cancel each other (see pickNextOrderDate's doc comment).
+      await component.pickNextOrderDate('2026-10-02')
+
+      expect(scheduleReminderSpy).toHaveBeenCalledTimes(1)
+      expect(component.draft?.nextOrderDate).toBe('2026-10-01')
+      // isScheduling() (and so the template's "Scheduling…" note) is still
+      // true here -- an indefinitely stuck popup reads as "still working",
+      // not a silent no-op, which is the class of bug this item is about.
+      expect(component.isScheduling()).toBe(true)
+
+      deferred.resolve?.()
+      await first
+      expect(component.isScheduling()).toBe(false)
+    })
+
+    it('clears error() when reselecting the same medication', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      scheduleReminderSpy.mockRejectedValue(new Error('boom'))
+      await component.pickNextOrderDate('2026-10-01')
+      expect(component.error()).not.toBeNull()
+
+      component.select('med-1')
+
+      expect(component.error()).toBeNull()
+    })
+
+    /** Registers a second medication alongside 'med-1' -- the shared
+     * setup() only has one, which can't exercise a scheduling operation
+     * outliving a switch to a *different* medication. */
+    function setupWithTwoMedications() {
+      prescriptions$ = new BehaviorSubject<Prescription[]>([])
+      scheduleReminderSpy = jest.fn().mockResolvedValue(undefined)
+      TestBed.configureTestingModule({
+        imports: [PrescriptionsComponent],
+        providers: [
+          {
+            provide: MedicationService,
+            useValue: {
+              all$: new BehaviorSubject<Medication[]>([
+                medication,
+                medication2,
+              ]),
+            },
+          },
+          { provide: PrescriptionService, useValue: { all$: prescriptions$ } },
+          {
+            provide: CalendarService,
+            useValue: { scheduleReminder: scheduleReminderSpy },
+          },
+        ],
+      })
+      const fixture = TestBed.createComponent(PrescriptionsComponent)
+      fixture.detectChanges()
+      return fixture
+    }
+
+    it('does not leak a stale scheduling completion onto a medication switched to mid-flight', async () => {
+      // Caught by Copilot review on this item's PR: isScheduling()/error()
+      // used to be plain component-wide signals, so switching medications
+      // while a Calendar write was still in flight for the *previous*
+      // medication made the newly-selected one incorrectly show
+      // "Scheduling…", and a later failure wrote its error into the new
+      // medication's form instead of the one it was actually for.
+      const component = setupWithTwoMedications().componentInstance
+      component.select('med-1')
+      const deferred: { reject?: (err: Error) => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<void>((_resolve, reject) => {
+          deferred.reject = reject
+        }),
+      )
+
+      const stalePick = component.pickNextOrderDate('2026-10-01')
+      expect(component.isScheduling()).toBe(true)
+
+      component.select('med-2')
+      // The still-in-flight write belongs to med-1, not the newly-selected
+      // med-2 -- its form should read as idle, not "Scheduling…".
+      expect(component.isScheduling()).toBe(false)
+      expect(component.error()).toBeNull()
+
+      deferred.reject?.(new Error('boom'))
+      await stalePick
+
+      // The failure is med-1's, so it must not appear while med-2 is
+      // selected.
+      expect(component.isScheduling()).toBe(false)
+      expect(component.error()).toBeNull()
+
+      // select() always starts from a clean slate (matches
+      // MedicationsComponent.select()), so switching back to med-1 doesn't
+      // resurface the stale error either -- it's not a persistent flag on
+      // the medication, just feedback for the attempt that just ran.
+      component.select('med-1')
+      expect(component.error()).toBeNull()
+    })
+
+    it('marks isCalendarBusy() true for any medication while a write is in flight elsewhere', async () => {
+      // The single global lock (CalendarSchedulingService) means a pick for
+      // a different medication would silently no-op while one write is
+      // already in flight -- isCalendarBusy() drives disabling the picker
+      // instead of letting that click look accepted (caught by Copilot
+      // review on this item's PR).
+      const component = setupWithTwoMedications().componentInstance
+      component.select('med-1')
+      const deferred: { resolve?: () => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<void>((resolve) => {
+          deferred.resolve = resolve
+        }),
+      )
+
+      const picking = component.pickNextOrderDate('2026-10-01')
+      component.select('med-2')
+
+      // Not scheduling *for med-2* -- isScheduling() stays scoped to it --
+      // but the picker should still read as busy globally.
+      expect(component.isScheduling()).toBe(false)
+      expect(component.isCalendarBusy()).toBe(true)
+
+      deferred.resolve?.()
+      await picking
+
+      expect(component.isCalendarBusy()).toBe(false)
+    })
+
+    it('keeps the lock across a route destroy/recreate (navigating away and back)', async () => {
+      // Caught by Copilot review on this item's PR: a component-instance
+      // field would forget an in-flight write when Angular's router
+      // destroys PrescriptionsComponent on navigating away, letting a
+      // second attempt after the user returns call signInWithPopup()
+      // concurrently with the first -- the exact cancellation this lock
+      // exists to prevent. CalendarSchedulingService is root-scoped
+      // specifically so it survives that destroy/recreate, which this test
+      // simulates directly (no TestBed.resetTestingModule() between the two
+      // createComponent() calls, so the same singleton backs both).
+      const fixtureA = setup()
+      const componentA = fixtureA.componentInstance
+      componentA.select('med-1')
+      const deferred: { resolve?: () => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<void>((resolve) => {
+          deferred.resolve = resolve
+        }),
+      )
+      const stalePick = componentA.pickNextOrderDate('2026-10-01')
+
+      fixtureA.destroy()
+      const fixtureB = TestBed.createComponent(PrescriptionsComponent)
+      fixtureB.detectChanges()
+      const componentB = fixtureB.componentInstance
+      componentB.select('med-1')
+      await componentB.pickNextOrderDate('2026-10-02')
+
+      // Still only the one call from componentA -- componentB's guard saw
+      // the lock componentA's still-pending write is holding.
+      expect(scheduleReminderSpy).toHaveBeenCalledTimes(1)
+
+      deferred.resolve?.()
+      await stalePick
+    })
   })
 
   describe('cross-tab selection (SelectedMedicationService)', () => {

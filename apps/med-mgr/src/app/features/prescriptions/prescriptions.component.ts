@@ -14,6 +14,7 @@ import { MedicationService } from '../../services/medication.service'
 import { PrescriptionService } from '../../services/prescription.service'
 import { CalendarService } from '../../core/calendar.service'
 import { SelectedMedicationService } from '../../services/selected-medication.service'
+import { CalendarSchedulingService } from '../../services/calendar-scheduling.service'
 import type { Medication } from '../../models/medication.model'
 import type { Prescription } from '../../models/prescription.model'
 import { emptyPrescription } from '../../models/prescription.model'
@@ -108,6 +109,47 @@ export class PrescriptionsComponent {
   /** Whether the one-time hydration effect below has already run. */
   private hydratedSelection = false
 
+  /** Root-scoped, not a component field: Angular's router destroys this
+   * component on navigating away from Prescriptions, and a component field
+   * would forget a Calendar write still pending from before the user left
+   * -- see CalendarSchedulingService's doc comment (added after Copilot
+   * review on this item's PR caught the component-field version losing the
+   * lock across navigation). */
+  private readonly calendarScheduling = inject(CalendarSchedulingService)
+
+  /** True only while a Calendar write is in flight *for the currently
+   * selected medication* -- mirrors isDeleting/isRegenerating in
+   * MedicationsComponent (see TODO.md #8) as the in-flight indicator, but
+   * see CalendarSchedulingService's doc comment for why the lock itself
+   * lives in a service and why this is derived rather than a plain signal:
+   * a still-in-flight write for a medication the user has since navigated
+   * away from must not show "Scheduling…" against whatever they've
+   * switched to instead. */
+  readonly isScheduling = computed(() => {
+    const id = this.calendarScheduling.schedulingMedicationId()
+    return id !== null && id === this.selectedId()
+  })
+
+  /** True while a Calendar write is in flight for *any* medication --
+   * unlike isScheduling(), not scoped to the current selection. Used to
+   * disable the date picker entirely while true: the single global lock
+   * (see CalendarSchedulingService) means a pick for a different medication
+   * would silently no-op anyway, and a disabled picker says so instead of
+   * looking like the click was accepted (caught by Copilot review on this
+   * item's PR). */
+  readonly isCalendarBusy = computed(
+    () => this.calendarScheduling.schedulingMedicationId() !== null,
+  )
+
+  /** The scheduling-failure message for the currently selected medication,
+   * if any -- see CalendarSchedulingService's doc comment. */
+  readonly error = computed(() => {
+    const failure = this.calendarScheduling.failure()
+    return failure && failure.medicationId === this.selectedId()
+      ? failure.message
+      : null
+  })
+
   constructor() {
     // Loads `draft` from a selection already made on the Medications/
     // Interactions pages before this page was ever mounted -- selectedId is
@@ -154,6 +196,7 @@ export class PrescriptionsComponent {
         this.selectedId.set(null)
         this.draft = null
         this.draftBaseline = null
+        this.calendarScheduling.failure.set(null)
         // A plain field write from a reactive effect (not a template event
         // binding), so it needs an explicit nudge to reach the OnPush view.
         this.changeDetectorRef.markForCheck()
@@ -199,6 +242,7 @@ export class PrescriptionsComponent {
 
   select(medicationId: string): void {
     this.selectedId.set(medicationId)
+    this.calendarScheduling.failure.set(null)
     const existing = this.prescriptions().find(
       (p) => p.medicationId === medicationId,
     )
@@ -250,18 +294,49 @@ export class PrescriptionsComponent {
   }
 
   /** Picking a date both updates the draft and, matching the old app,
-   * immediately creates the Calendar reminder — independent of Save. */
+   * immediately creates the Calendar reminder — independent of Save.
+   * CalendarService.scheduleReminder() can throw (expired/missing token,
+   * a blocked or dismissed Google sign-in popup, a Calendar API error) --
+   * previously this was awaited with no try/catch, so a real failure
+   * surfaced nothing to the user: the badge still updated (the draft write
+   * above happens unconditionally) as if a reminder had been scheduled,
+   * while the Calendar API was never actually reached. Confirmed live
+   * against the deployed app: a `signInWithPopup` failure/cancellation
+   * threw before any request to googleapis.com/calendar/v3 was made. */
   async pickNextOrderDate(nextOrderDate: DateKey): Promise<void> {
     const medication = this.selectedMedication()
-    if (!medication || !this.draft) {
+    if (
+      !medication ||
+      !this.draft ||
+      this.calendarScheduling.schedulingMedicationId() !== null
+    ) {
       return
     }
+    const medicationId = medication.id
     this.draft = { ...this.draft, nextOrderDate }
-    await this.calendarService.scheduleReminder(
-      medication,
-      nextOrderDate,
-      this.draft.howToOrder,
-    )
+    this.calendarScheduling.schedulingMedicationId.set(medicationId)
+    this.calendarScheduling.failure.set(null)
+    try {
+      await this.calendarService.scheduleReminder(
+        medication,
+        nextOrderDate,
+        this.draft.howToOrder,
+      )
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : 'Failed to schedule calendar reminder. Please try again.'
+      this.calendarScheduling.failure.set({
+        medicationId,
+        message,
+      })
+    } finally {
+      // Only one Calendar write is ever in flight at a time (see
+      // CalendarSchedulingService's doc comment), so it's always this
+      // call's own id to release.
+      this.calendarScheduling.schedulingMedicationId.set(null)
+    }
   }
 }
 

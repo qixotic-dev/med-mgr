@@ -40,6 +40,12 @@ export class CalendarPickerComponent {
   readonly selected = input.required<DateKey>()
   readonly minDate = input.required<DateKey>()
   readonly maxDate = input.required<DateKey>()
+  /** When true, the toggle button can't open the popover at all -- for a
+   * caller that needs to block picking a date for a reason the picker
+   * itself has no way to know about (e.g. PrescriptionsComponent disabling
+   * it while a Calendar write for *any* medication is in flight, see
+   * TODO.md #12). Defaults to false so existing usages are unaffected. */
+  readonly disabled = input(false)
 
   readonly dateSelected = output<DateKey>()
   readonly visibleMonthChanged = output<DateRange>()
@@ -70,6 +76,9 @@ export class CalendarPickerComponent {
   )
 
   toggle(): void {
+    if (this.disabled()) {
+      return
+    }
     if (this.isOpen()) {
       this.close()
       return

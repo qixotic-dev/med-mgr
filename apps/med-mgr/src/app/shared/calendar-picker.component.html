@@ -4,7 +4,15 @@
     class="calendar-toggle"
     aria-haspopup="dialog"
     [attr.aria-expanded]="isOpen()"
-    [attr.aria-label]="'Choose a date, currently ' + selected()"
+    [attr.aria-label]="
+      'Choose a date, currently ' +
+      selected() +
+      (disabled() ? '. A calendar update is already in progress' : '')
+    "
+    [disabled]="disabled()"
+    [attr.title]="
+      disabled() ? 'A calendar update is already in progress' : null
+    "
     (click)="toggle()"
   >
     📅 {{ selected() }}
