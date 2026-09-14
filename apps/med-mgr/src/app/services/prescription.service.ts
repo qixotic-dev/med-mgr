@@ -24,6 +24,7 @@ interface PrescriptionDoc {
   howToOrder: string
   lastOrderDate: DateKey | null
   nextOrderDate: DateKey | null
+  calendarEventId: string | null
   scheduleNotes: string
   updatedAt: Timestamp | null
 }
@@ -33,7 +34,10 @@ function toPrescription(
   data: PrescriptionDoc,
 ): Prescription {
   return {
-    medicationId,
+    // Defaults for fields a doc doesn't have -- either a pre-existing prod
+    // doc that predates calendarEventId, or one saveSchedule() created
+    // holding only nextOrderDate/calendarEventId (see its doc comment).
+    ...emptyPrescription(medicationId),
     ...data,
     updatedAt: data.updatedAt ? data.updatedAt.toDate() : null,
   }
@@ -70,13 +74,46 @@ export class PrescriptionService {
     )
   }
 
+  /** `nextOrderDate`/`calendarEventId` are deliberately excluded --
+   * saveSchedule() is their sole writer (see its doc comment). Letting
+   * save() also write them raced it against saveSchedule(): save() snapshots
+   * `draft` before its own await, so if a pick/clear's saveSchedule() call
+   * resolves first, a slower save() landing after it would silently
+   * overwrite the fresh id/date with the stale ones it started with,
+   * orphaning the event saveSchedule() just persisted (caught by Copilot
+   * review on this item's PR). Omitting the fields from a merge write
+   * leaves them untouched in Firestore rather than clearing them. */
   async save(
     medicationId: string,
-    changes: Omit<Prescription, 'medicationId' | 'updatedAt'>,
+    changes: Omit<
+      Prescription,
+      'medicationId' | 'updatedAt' | 'nextOrderDate' | 'calendarEventId'
+    >,
   ): Promise<void> {
     await setDoc(
       doc(this.firestore, PRESCRIPTIONS_COLLECTION, medicationId),
       { ...changes, updatedAt: Timestamp.now() },
+      { merge: true },
+    )
+  }
+
+  /** Persists just `nextOrderDate` and its Calendar event id, independent of
+   * `save()` -- called immediately after a Calendar write
+   * (PrescriptionsComponent.pickNextOrderDate()/clearSchedule()), which must
+   * not wait for the user to click Save, and must not flush whatever
+   * possibly-unsaved pharmacy/prescriber fields are sitting in the draft.
+   * The sole writer of these two fields -- see save()'s doc comment.
+   * Merges rather than requiring the doc to already exist -- a schedule
+   * picked before any other field was ever saved creates a doc holding only
+   * these fields; toPrescription() backfills the rest on read. */
+  async saveSchedule(
+    medicationId: string,
+    nextOrderDate: DateKey | null,
+    calendarEventId: string | null,
+  ): Promise<void> {
+    await setDoc(
+      doc(this.firestore, PRESCRIPTIONS_COLLECTION, medicationId),
+      { nextOrderDate, calendarEventId, updatedAt: Timestamp.now() },
       { merge: true },
     )
   }

@@ -11,8 +11,11 @@ import { toSignal } from '@angular/core/rxjs-interop'
 import { FormsModule } from '@angular/forms'
 import { SeverityBadgeComponent } from '../../shared/severity-badge.component'
 import { MedicationService } from '../../services/medication.service'
+import { PrescriptionService } from '../../services/prescription.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
 import { SelectedMedicationService } from '../../services/selected-medication.service'
+import { CalendarSchedulingService } from '../../services/calendar-scheduling.service'
+import { CalendarService } from '../../core/calendar.service'
 import type { Medication } from '../../models/medication.model'
 import {
   filterFindingsByMedication,
@@ -133,8 +136,28 @@ export function isSameMedicationData(
 })
 export class MedicationsComponent {
   private readonly medicationService = inject(MedicationService)
+  private readonly prescriptionService = inject(PrescriptionService)
+  private readonly calendarService = inject(CalendarService)
+  /** Shared with PrescriptionsComponent's pickNextOrderDate()/
+   * clearSchedule() (see its doc comment) -- delete()'s best-effort Calendar
+   * cleanup holds this too, so it can't run concurrently with a pick/clear
+   * for another medication and race on ensureAccessToken()/
+   * signInWithPopup() (caught by Copilot review on this item's PR). */
+  private readonly calendarScheduling = inject(CalendarSchedulingService)
   private readonly interactionReportService = inject(InteractionReportService)
   private readonly changeDetectorRef = inject(ChangeDetectorRef)
+
+  /** Only consulted by delete(), to best-effort clean up a Calendar event
+   * left scheduled for the medication being removed (TODO.md #13) --
+   * MedicationsComponent otherwise has no reason to know about
+   * Prescriptions. */
+  private readonly prescriptionsSnapshot = toSignal(this.prescriptionService.all$)
+  private readonly prescriptions = computed(
+    () => this.prescriptionsSnapshot() ?? [],
+  )
+  readonly prescriptionsLoaded = computed(
+    () => this.prescriptionsSnapshot() !== undefined,
+  )
 
   protected readonly NEW_CATEGORY_OPTION = NEW_CATEGORY_OPTION
   protected readonly categoryOptionValue = categoryOptionValue
@@ -438,7 +461,12 @@ export class MedicationsComponent {
 
   async delete(): Promise<void> {
     const id = this.selectedId()
-    if (!id || this.isDeleting()) {
+    if (
+      !id ||
+      !this.prescriptionsLoaded() ||
+      this.isDeleting() ||
+      this.calendarScheduling.schedulingMedicationId() !== null
+    ) {
       return
     }
     // Falls back to the id if medications() hasn't caught up with a
@@ -449,16 +477,46 @@ export class MedicationsComponent {
     if (!window.confirm(`Delete ${name}? This cannot be undone.`)) {
       return
     }
+    // Read before the delete below removes the Prescription doc this comes
+    // from -- captured here, not after, so a delete can't race the
+    // Firestore listener updating prescriptions() out from under it.
+    const calendarEventId = this.prescriptions().find(
+      (p) => p.medicationId === id,
+    )?.calendarEventId
     this.isDeleting.set(true)
     this.error.set(null)
+    // Held for the whole operation, not just the Firestore delete below --
+    // see the field's own doc comment. Released explicitly on both exit
+    // paths rather than in a `finally`, since the Calendar cleanup below
+    // must run only on the success path (a failed Firestore delete leaves
+    // the medication and its live reminder both in place -- deleting the
+    // reminder then would be wrong).
+    this.calendarScheduling.schedulingMedicationId.set(id)
     try {
       await this.medicationService.delete(id)
     } catch {
       this.error.set('Failed to delete. Please try again.')
-      return
-    } finally {
       this.isDeleting.set(false)
+      this.calendarScheduling.schedulingMedicationId.set(null)
+      return
     }
+    if (calendarEventId) {
+      // Best-effort (TODO.md #13): a Calendar failure -- expired token,
+      // blocked popup, API error -- must never undo or block a medication
+      // delete that already succeeded. A stray Calendar event is a much
+      // smaller problem than a medication the user can't remove.
+      await this.calendarService.deleteReminder(calendarEventId).catch(() => {
+        /* best-effort -- see comment above */
+      })
+    }
+    // isDeleting only clears once the Calendar cleanup above is also done
+    // (caught by Copilot review on this item's PR) -- otherwise a second
+    // delete(), re-enabled the instant the Firestore delete alone finished,
+    // could run concurrently with this cleanup's own
+    // ensureAccessToken()/signInWithPopup(), recreating the exact
+    // popup-cancellation TODO.md #12 exists to prevent.
+    this.isDeleting.set(false)
+    this.calendarScheduling.schedulingMedicationId.set(null)
     // Only clear the form if the user is still on this same selection --
     // otherwise this stale completion would clobber whatever they've since
     // switched to, mirroring the guard in save().

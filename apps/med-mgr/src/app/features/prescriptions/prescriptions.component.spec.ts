@@ -35,18 +35,23 @@ describe('PrescriptionsComponent', () => {
     howToOrder: 'Call ahead',
     lastOrderDate: '2026-08-01',
     nextOrderDate: '2026-09-01',
+    calendarEventId: 'event-1',
     scheduleNotes: '',
     updatedAt: new Date('2026-08-01'),
   }
 
   let prescriptions$: BehaviorSubject<Prescription[]>
   let saveSpy: jest.Mock
+  let saveScheduleSpy: jest.Mock
   let scheduleReminderSpy: jest.Mock
+  let deleteReminderSpy: jest.Mock
 
   function setup() {
     prescriptions$ = new BehaviorSubject<Prescription[]>([])
     saveSpy = jest.fn().mockResolvedValue(undefined)
-    scheduleReminderSpy = jest.fn().mockResolvedValue(undefined)
+    saveScheduleSpy = jest.fn().mockResolvedValue(undefined)
+    scheduleReminderSpy = jest.fn().mockResolvedValue('new-event-id')
+    deleteReminderSpy = jest.fn().mockResolvedValue(undefined)
     TestBed.configureTestingModule({
       imports: [PrescriptionsComponent],
       providers: [
@@ -56,11 +61,18 @@ describe('PrescriptionsComponent', () => {
         },
         {
           provide: PrescriptionService,
-          useValue: { all$: prescriptions$, save: saveSpy },
+          useValue: {
+            all$: prescriptions$,
+            save: saveSpy,
+            saveSchedule: saveScheduleSpy,
+          },
         },
         {
           provide: CalendarService,
-          useValue: { scheduleReminder: scheduleReminderSpy },
+          useValue: {
+            scheduleReminder: scheduleReminderSpy,
+            deleteReminder: deleteReminderSpy,
+          },
         },
       ],
     })
@@ -165,6 +177,66 @@ describe('PrescriptionsComponent', () => {
   })
 
   describe('pickNextOrderDate', () => {
+    it("passes the previous pick's event id to scheduleReminder so it updates that event instead of leaving it behind", async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      prescriptions$.next([savedPrescription])
+      await fixture.whenStable()
+      component.select('med-1')
+
+      await component.pickNextOrderDate('2026-10-01')
+
+      expect(scheduleReminderSpy).toHaveBeenCalledWith(
+        medication,
+        '2026-10-01',
+        savedPrescription.howToOrder,
+        'event-1',
+      )
+      expect(saveScheduleSpy).toHaveBeenCalledWith(
+        'med-1',
+        '2026-10-01',
+        'new-event-id',
+      )
+      expect(component.draft?.calendarEventId).toBe('new-event-id')
+
+      // A second pick reuses *that* event's id, not the original one --
+      // otherwise this pick's own event would be left behind next time too.
+      await component.pickNextOrderDate('2026-10-02')
+
+      expect(scheduleReminderSpy).toHaveBeenLastCalledWith(
+        medication,
+        '2026-10-02',
+        savedPrescription.howToOrder,
+        'new-event-id',
+      )
+    })
+
+    it('adopts the new event id even when saveSchedule() fails, so a retry does not orphan it', async () => {
+      // If scheduleReminder() creates/moves an event but the Firestore write
+      // right after it throws, the *next* pick must still target the event
+      // that actually exists on Google's side -- not the stale id it was
+      // called with -- or that event is orphaned exactly like TODO.md #13's
+      // original bug.
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      saveScheduleSpy.mockRejectedValueOnce(new Error('offline'))
+
+      await component.pickNextOrderDate('2026-10-01')
+
+      expect(component.draft?.calendarEventId).toBe('new-event-id')
+      expect(component.error()).toBe('offline')
+
+      await component.pickNextOrderDate('2026-10-02')
+
+      expect(scheduleReminderSpy).toHaveBeenLastCalledWith(
+        medication,
+        '2026-10-02',
+        '',
+        'new-event-id',
+      )
+    })
+
     it('surfaces the Calendar error and clears isScheduling when the write fails', async () => {
       const fixture = setup()
       const component = fixture.componentInstance
@@ -257,7 +329,8 @@ describe('PrescriptionsComponent', () => {
      * outliving a switch to a *different* medication. */
     function setupWithTwoMedications() {
       prescriptions$ = new BehaviorSubject<Prescription[]>([])
-      scheduleReminderSpy = jest.fn().mockResolvedValue(undefined)
+      scheduleReminderSpy = jest.fn().mockResolvedValue('new-event-id')
+      deleteReminderSpy = jest.fn().mockResolvedValue(undefined)
       TestBed.configureTestingModule({
         imports: [PrescriptionsComponent],
         providers: [
@@ -270,10 +343,19 @@ describe('PrescriptionsComponent', () => {
               ]),
             },
           },
-          { provide: PrescriptionService, useValue: { all$: prescriptions$ } },
+          {
+            provide: PrescriptionService,
+            useValue: {
+              all$: prescriptions$,
+              saveSchedule: jest.fn().mockResolvedValue(undefined),
+            },
+          },
           {
             provide: CalendarService,
-            useValue: { scheduleReminder: scheduleReminderSpy },
+            useValue: {
+              scheduleReminder: scheduleReminderSpy,
+              deleteReminder: deleteReminderSpy,
+            },
           },
         ],
       })
@@ -386,6 +468,157 @@ describe('PrescriptionsComponent', () => {
 
       deferred.resolve?.()
       await stalePick
+    })
+  })
+
+  describe('clearSchedule', () => {
+    it('deletes the stored Calendar event and nulls both fields on success', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      prescriptions$.next([savedPrescription])
+      await fixture.whenStable()
+      component.select('med-1')
+
+      await component.clearSchedule()
+
+      expect(deleteReminderSpy).toHaveBeenCalledWith('event-1')
+      expect(saveScheduleSpy).toHaveBeenCalledWith('med-1', null, null)
+      expect(component.draft?.nextOrderDate).toBeNull()
+      expect(component.draft?.calendarEventId).toBeNull()
+    })
+
+    it('is a no-op Calendar-wise but still clears the date when nothing was scheduled', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+
+      await component.clearSchedule()
+
+      expect(deleteReminderSpy).not.toHaveBeenCalled()
+      expect(saveScheduleSpy).toHaveBeenCalledWith('med-1', null, null)
+      expect(component.draft?.nextOrderDate).toBeNull()
+    })
+
+    it('surfaces an error and leaves calendarEventId intact when the delete fails', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      prescriptions$.next([savedPrescription])
+      await fixture.whenStable()
+      component.select('med-1')
+      deleteReminderSpy.mockRejectedValue(new Error('boom'))
+
+      await component.clearSchedule()
+
+      expect(component.error()).toBe('boom')
+      // Not nulled -- a failed delete must not orphan the still-live event
+      // by losing the only id that can reach it.
+      expect(component.draft?.calendarEventId).toBe('event-1')
+      expect(saveScheduleSpy).not.toHaveBeenCalled()
+      // Optimistic, matching pickNextOrderDate()'s same pattern.
+      expect(component.draft?.nextOrderDate).toBeNull()
+      // The button must stay enabled so the user can retry the delete --
+      // otherwise this event is unreachable through the UI forever (caught
+      // by Copilot review on this item's PR).
+      expect(component.canClearSchedule()).toBe(true)
+    })
+
+    it('is blocked while a pick is in flight, and vice versa', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      prescriptions$.next([savedPrescription])
+      await fixture.whenStable()
+      component.select('med-1')
+      const deferred: { resolve?: () => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<string>((resolve) => {
+          deferred.resolve = resolve
+        }),
+      )
+
+      const picking = component.pickNextOrderDate('2026-10-01')
+      await component.clearSchedule()
+
+      expect(deleteReminderSpy).not.toHaveBeenCalled()
+
+      deferred.resolve?.('new-event-id')
+      await picking
+    })
+  })
+
+  describe('canClearSchedule', () => {
+    it('is false when neither a date nor an event is on record', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+
+      expect(component.canClearSchedule()).toBe(false)
+    })
+
+    it('is true when only calendarEventId remains (the failed-clear case)', () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      if (component.draft === null) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft = {
+        ...component.draft,
+        nextOrderDate: null,
+        calendarEventId: 'event-1',
+      }
+
+      expect(component.canClearSchedule()).toBe(true)
+    })
+
+    it('is false while a Calendar write is in flight', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      prescriptions$.next([savedPrescription])
+      await fixture.whenStable()
+      component.select('med-1')
+      const deferred: { resolve?: (id: string) => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<string>((resolve) => {
+          deferred.resolve = resolve
+        }),
+      )
+
+      const picking = component.pickNextOrderDate('2026-10-01')
+
+      expect(component.canClearSchedule()).toBe(false)
+
+      deferred.resolve?.('new-event-id')
+      await picking
+    })
+  })
+
+  describe('save', () => {
+    it('does not send nextOrderDate/calendarEventId -- saveSchedule() is their sole writer', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      if (component.draft === null) {
+        throw new Error('expected select() to set a draft')
+      }
+      component.draft = {
+        ...component.draft,
+        pharmacyName: 'Real Pharmacy',
+        pharmacyPhone: '555-0100',
+        prescriberName: 'Dr. Real',
+        prescriberPhone: '555-0200',
+        nextOrderDate: '2026-09-01',
+        calendarEventId: 'event-1',
+      }
+
+      await component.save()
+
+      expect(saveSpy).toHaveBeenCalledTimes(1)
+      const sent = saveSpy.mock.calls[0][1] as Record<string, unknown>
+      // Absent, not just falsy -- a merge write with an explicit null would
+      // still clobber Firestore's real value, the same bug this omission
+      // exists to prevent.
+      expect(sent).not.toHaveProperty('nextOrderDate')
+      expect(sent).not.toHaveProperty('calendarEventId')
     })
   })
 

@@ -107,6 +107,14 @@
                 [disabled]="isCalendarBusy()"
                 (dateSelected)="pickNextOrderDate($event)"
               />
+              <button
+                type="button"
+                class="clear-schedule"
+                [disabled]="!canClearSchedule()"
+                (click)="clearSchedule()"
+              >
+                Clear
+              </button>
               <app-status-badge [nextOrderDate]="draft.nextOrderDate" />
               @if (isScheduling()) {
                 <span
