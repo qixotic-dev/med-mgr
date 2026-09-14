@@ -165,7 +165,7 @@ describe('PrescriptionsComponent', () => {
   })
 
   describe('pickNextOrderDate', () => {
-    it('surfaces an error and clears isScheduling when the Calendar write fails', async () => {
+    it('surfaces the Calendar error and clears isScheduling when the write fails', async () => {
       const fixture = setup()
       const component = fixture.componentInstance
       component.select('med-1')
@@ -176,12 +176,23 @@ describe('PrescriptionsComponent', () => {
       await picking
 
       expect(component.isScheduling()).toBe(false)
-      expect(component.error()).toBe(
-        'Failed to schedule calendar reminder. Please try again.',
-      )
+      expect(component.error()).toBe('boom')
       // The draft still reflects the picked date -- matches the old app's
       // behavior of updating the field independent of the Calendar write.
       expect(component.draft?.nextOrderDate).toBe('2026-10-01')
+    })
+
+    it('falls back to a generic message when a thrown value has no message', async () => {
+      const fixture = setup()
+      const component = fixture.componentInstance
+      component.select('med-1')
+      scheduleReminderSpy.mockRejectedValue('boom')
+
+      await component.pickNextOrderDate('2026-10-01')
+
+      expect(component.error()).toBe(
+        'Failed to schedule calendar reminder. Please try again.',
+      )
     })
 
     it('clears a previous error once a retry succeeds', async () => {

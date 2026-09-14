@@ -322,10 +322,14 @@ export class PrescriptionsComponent {
         nextOrderDate,
         this.draft.howToOrder,
       )
-    } catch {
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : 'Failed to schedule calendar reminder. Please try again.'
       this.calendarScheduling.failure.set({
         medicationId,
-        message: 'Failed to schedule calendar reminder. Please try again.',
+        message,
       })
     } finally {
       // Only one Calendar write is ever in flight at a time (see
