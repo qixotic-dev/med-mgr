@@ -36,7 +36,7 @@
 
       <form class="detail-form" (ngSubmit)="save()">
         <label>
-          Common Name <span class="required">*</span>
+          <span>Common Name <span class="required">*</span></span>
           <input
             type="text"
             name="commonName"
@@ -56,12 +56,12 @@
         </label>
 
         <label>
-          Dose <span class="required">*</span>
+          <span>Dose <span class="required">*</span></span>
           <input type="text" name="dose" required [(ngModel)]="draft.dose" />
         </label>
 
         <label>
-          Category <span class="required">*</span>
+          <span>Category <span class="required">*</span></span>
           <select
             name="category"
             [ngModel]="
@@ -83,7 +83,7 @@
 
         @if (isNewCategory) {
           <label>
-            New category name <span class="required">*</span>
+            <span>New category name <span class="required">*</span></span>
             <input
               type="text"
               name="newCategory"
@@ -94,7 +94,7 @@
         }
 
         <label>
-          Reorder interval (days) <span class="required">*</span>
+          <span>Reorder interval (days) <span class="required">*</span></span>
           <input
             type="number"
             name="intervalDays"
