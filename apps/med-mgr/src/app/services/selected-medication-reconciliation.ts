@@ -32,7 +32,7 @@ import type { Medication } from '../models/medication.model'
 export function reconcileSelectedMedication(options: {
   selectedId: WritableSignal<string | null>
   medications: Signal<Medication[]>
-  /** `undefined` until the medications snapshot has emitted at least once --
+  /** `false` until the medications snapshot has emitted at least once --
    * distinguishes "no medications yet" from "haven't heard from Firestore
    * yet", which both effects need to tell a stale selection from one that
    * just hasn't been confirmed yet. */
