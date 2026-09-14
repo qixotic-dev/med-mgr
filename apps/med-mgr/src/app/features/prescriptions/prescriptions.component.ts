@@ -14,6 +14,7 @@ import { MedicationService } from '../../services/medication.service'
 import { PrescriptionService } from '../../services/prescription.service'
 import { CalendarService } from '../../core/calendar.service'
 import { SelectedMedicationService } from '../../services/selected-medication.service'
+import { reconcileSelectedMedication } from '../../services/selected-medication-reconciliation'
 import { CalendarSchedulingService } from '../../services/calendar-scheduling.service'
 import type { Medication } from '../../models/medication.model'
 import type { Prescription } from '../../models/prescription.model'
@@ -106,9 +107,6 @@ export class PrescriptionsComponent {
    * in-progress edit. */
   private draftBaseline: Prescription | null = null
 
-  /** Whether the one-time hydration effect below has already run. */
-  private hydratedSelection = false
-
   /** Root-scoped, not a component field: Angular's router destroys this
    * component on navigating away from Prescriptions, and a component field
    * would forget a Calendar write still pending from before the user left
@@ -152,55 +150,24 @@ export class PrescriptionsComponent {
 
   constructor() {
     // Loads `draft` from a selection already made on the Medications/
-    // Interactions pages before this page was ever mounted -- selectedId is
-    // shared (see its doc comment above), but select() is otherwise only
-    // ever called from this component's own sidebar clicks, so a
-    // pre-existing selection needs this one-time hydration to actually show
-    // up in the form. Mirrors MedicationsComponent's identical effect.
-    // Waits for medicationsLoaded() so it can tell "not found yet" from
-    // "was deleted elsewhere", then never runs again.
-    effect(() => {
-      if (this.hydratedSelection || !this.medicationsLoaded()) {
-        return
-      }
-      this.hydratedSelection = true
-      const id = this.selectedId()
-      if (!id) {
-        return
-      }
-      if (this.medications().some((m) => m.id === id)) {
-        this.select(id)
-        // select() is otherwise only ever called from a template click,
-        // which marks the view on its own -- see the reconcile effect
-        // below for the same nudge.
-        this.changeDetectorRef.markForCheck()
-      } else {
-        // Stale -- the medication behind a cross-tab selection was deleted
-        // elsewhere before this page ever loaded it.
-        this.selectedId.set(null)
-      }
-    })
-
-    // Resets the shared selection (and this page's draft) back to null if
-    // the selected medication is deleted from another tab/device while
-    // sitting on Prescriptions -- otherwise the sidebar/header would keep
-    // pointing at a dead id. Mirrors InteractionsComponent's identical
-    // effect, added there for the same shared-signal reason (see TODO.md
-    // #6, #9).
-    effect(() => {
-      if (!this.medicationsLoaded()) {
-        return
-      }
-      const id = this.selectedId()
-      if (id && !this.medications().some((m) => m.id === id)) {
-        this.selectedId.set(null)
+    // Interactions pages before this page was ever mounted, and resets the
+    // shared selection (and this page's draft) back to null if the selected
+    // medication is deleted from another tab/device while sitting on
+    // Prescriptions -- otherwise the sidebar/header would keep pointing at a
+    // dead id. See reconcileSelectedMedication's doc comment (TODO.md #14;
+    // previously two hand-copied effects here, mirroring
+    // MedicationsComponent/InteractionsComponent's own copies).
+    reconcileSelectedMedication({
+      selectedId: this.selectedId,
+      medications: this.medications,
+      medicationsLoaded: this.medicationsLoaded,
+      changeDetectorRef: this.changeDetectorRef,
+      onHydrated: (id) => this.select(id),
+      onCleared: () => {
         this.draft = null
         this.draftBaseline = null
         this.calendarScheduling.failure.set(null)
-        // A plain field write from a reactive effect (not a template event
-        // binding), so it needs an explicit nudge to reach the OnPush view.
-        this.changeDetectorRef.markForCheck()
-      }
+      },
     })
 
     // `select()` can run before `prescriptions()` has received its first

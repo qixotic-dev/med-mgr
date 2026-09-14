@@ -14,6 +14,7 @@ import { MedicationService } from '../../services/medication.service'
 import { PrescriptionService } from '../../services/prescription.service'
 import { InteractionReportService } from '../../services/interaction-report.service'
 import { SelectedMedicationService } from '../../services/selected-medication.service'
+import { reconcileSelectedMedication } from '../../services/selected-medication-reconciliation'
 import { CalendarSchedulingService } from '../../services/calendar-scheduling.service'
 import { CalendarService } from '../../core/calendar.service'
 import type { Medication } from '../../models/medication.model'
@@ -233,37 +234,29 @@ export class MedicationsComponent {
 
   isNewCategory = false
 
-  /** Whether the one-time hydration effect below has already run. */
-  private hydratedSelection = false
-
   constructor() {
     // Loads `draft` from a selection already made on the Interactions page's
-    // filter before this page was ever mounted — selectedId is shared (see
-    // its doc comment above), but select() is otherwise only ever called
-    // from this component's own sidebar clicks, so a pre-existing selection
-    // needs this one-time hydration to actually show up in the form. Waits
-    // for medicationsLoaded() so it can tell "not found yet" from "was
-    // deleted elsewhere", then never runs again.
-    effect(() => {
-      if (this.hydratedSelection || !this.medicationsLoaded()) {
-        return
-      }
-      this.hydratedSelection = true
-      const id = this.selectedId()
-      if (!id) {
-        return
-      }
-      if (this.medications().some((m) => m.id === id)) {
-        this.select(id)
-        // select() is otherwise only ever called from a template click,
-        // which marks the view on its own -- see the reconcile effect below
-        // for the same nudge.
-        this.changeDetectorRef.markForCheck()
-      } else {
-        // Stale -- the medication behind a cross-tab selection was deleted
-        // elsewhere before this page ever loaded it.
-        this.selectedId.set(null)
-      }
+    // filter before this page was ever mounted -- see
+    // reconcileSelectedMedication's doc comment (TODO.md #14; previously
+    // hand-copied here). clearWhenMissing stays off: save()'s create branch
+    // below deliberately sets selectedId to an id medications() hasn't
+    // caught up to yet, which the continuous clear-if-missing effect would
+    // otherwise treat as "deleted" and immediately undo (reproduced live --
+    // see clearWhenMissing's own doc comment). That leaves this page, alone
+    // among the three, still not clearing a selection actually deleted
+    // elsewhere after the fact -- a known follow-up, not fixed here.
+    reconcileSelectedMedication({
+      selectedId: this.selectedId,
+      medications: this.medications,
+      medicationsLoaded: this.medicationsLoaded,
+      changeDetectorRef: this.changeDetectorRef,
+      onHydrated: (id) => this.select(id),
+      onCleared: () => {
+        this.draft = null
+        this.draftBaseline = null
+        this.isNewCategory = false
+      },
+      clearWhenMissing: false,
     })
 
     effect(() => {
