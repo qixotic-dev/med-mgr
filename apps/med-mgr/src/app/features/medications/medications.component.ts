@@ -152,7 +152,9 @@ export class MedicationsComponent {
    * left scheduled for the medication being removed (TODO.md #13) --
    * MedicationsComponent otherwise has no reason to know about
    * Prescriptions. */
-  private readonly prescriptionsSnapshot = toSignal(this.prescriptionService.all$)
+  private readonly prescriptionsSnapshot = toSignal(
+    this.prescriptionService.all$,
+  )
   private readonly prescriptions = computed(
     () => this.prescriptionsSnapshot() ?? [],
   )
