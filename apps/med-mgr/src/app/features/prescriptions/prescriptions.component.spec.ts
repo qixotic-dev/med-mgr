@@ -253,7 +253,10 @@ describe('PrescriptionsComponent', () => {
           {
             provide: MedicationService,
             useValue: {
-              all$: new BehaviorSubject<Medication[]>([medication, medication2]),
+              all$: new BehaviorSubject<Medication[]>([
+                medication,
+                medication2,
+              ]),
             },
           },
           { provide: PrescriptionService, useValue: { all$: prescriptions$ } },
