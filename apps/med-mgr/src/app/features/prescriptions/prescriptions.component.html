@@ -104,6 +104,7 @@
                 [selected]="draft.nextOrderDate ?? today"
                 [minDate]="minPickableDate"
                 [maxDate]="maxPickableDate"
+                [disabled]="isCalendarBusy()"
                 (dateSelected)="pickNextOrderDate($event)"
               />
               <app-status-badge [nextOrderDate]="draft.nextOrderDate" />

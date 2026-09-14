@@ -308,6 +308,71 @@ describe('PrescriptionsComponent', () => {
       component.select('med-1')
       expect(component.error()).toBeNull()
     })
+
+    it('marks isCalendarBusy() true for any medication while a write is in flight elsewhere', async () => {
+      // The single global lock (CalendarSchedulingService) means a pick for
+      // a different medication would silently no-op while one write is
+      // already in flight -- isCalendarBusy() drives disabling the picker
+      // instead of letting that click look accepted (caught by Copilot
+      // review on this item's PR).
+      const component = setupWithTwoMedications().componentInstance
+      component.select('med-1')
+      const deferred: { resolve?: () => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<void>((resolve) => {
+          deferred.resolve = resolve
+        }),
+      )
+
+      const picking = component.pickNextOrderDate('2026-10-01')
+      component.select('med-2')
+
+      // Not scheduling *for med-2* -- isScheduling() stays scoped to it --
+      // but the picker should still read as busy globally.
+      expect(component.isScheduling()).toBe(false)
+      expect(component.isCalendarBusy()).toBe(true)
+
+      deferred.resolve?.()
+      await picking
+
+      expect(component.isCalendarBusy()).toBe(false)
+    })
+
+    it('keeps the lock across a route destroy/recreate (navigating away and back)', async () => {
+      // Caught by Copilot review on this item's PR: a component-instance
+      // field would forget an in-flight write when Angular's router
+      // destroys PrescriptionsComponent on navigating away, letting a
+      // second attempt after the user returns call signInWithPopup()
+      // concurrently with the first -- the exact cancellation this lock
+      // exists to prevent. CalendarSchedulingService is root-scoped
+      // specifically so it survives that destroy/recreate, which this test
+      // simulates directly (no TestBed.resetTestingModule() between the two
+      // createComponent() calls, so the same singleton backs both).
+      const fixtureA = setup()
+      const componentA = fixtureA.componentInstance
+      componentA.select('med-1')
+      const deferred: { resolve?: () => void } = {}
+      scheduleReminderSpy.mockReturnValue(
+        new Promise<void>((resolve) => {
+          deferred.resolve = resolve
+        }),
+      )
+      const stalePick = componentA.pickNextOrderDate('2026-10-01')
+
+      fixtureA.destroy()
+      const fixtureB = TestBed.createComponent(PrescriptionsComponent)
+      fixtureB.detectChanges()
+      const componentB = fixtureB.componentInstance
+      componentB.select('med-1')
+      await componentB.pickNextOrderDate('2026-10-02')
+
+      // Still only the one call from componentA -- componentB's guard saw
+      // the lock componentA's still-pending write is holding.
+      expect(scheduleReminderSpy).toHaveBeenCalledTimes(1)
+
+      deferred.resolve?.()
+      await stalePick
+    })
   })
 
   describe('cross-tab selection (SelectedMedicationService)', () => {

@@ -5,7 +5,6 @@ import {
   computed,
   effect,
   inject,
-  signal,
 } from '@angular/core'
 import { toSignal } from '@angular/core/rxjs-interop'
 import { FormsModule } from '@angular/forms'
@@ -15,6 +14,7 @@ import { MedicationService } from '../../services/medication.service'
 import { PrescriptionService } from '../../services/prescription.service'
 import { CalendarService } from '../../core/calendar.service'
 import { SelectedMedicationService } from '../../services/selected-medication.service'
+import { CalendarSchedulingService } from '../../services/calendar-scheduling.service'
 import type { Medication } from '../../models/medication.model'
 import type { Prescription } from '../../models/prescription.model'
 import { emptyPrescription } from '../../models/prescription.model'
@@ -109,42 +109,42 @@ export class PrescriptionsComponent {
   /** Whether the one-time hydration effect below has already run. */
   private hydratedSelection = false
 
-  /** Medication id a pickNextOrderDate() Calendar write is currently in
-   * flight for, or `null`. A single global lock rather than per-medication:
-   * two overlapping signInWithPopup() calls -- regardless of which
-   * medication triggered them -- cancel each other with a
-   * `auth/cancelled-popup-request` error (reproduced live against the
-   * deployed app while diagnosing this item), so a second pick must be
-   * blocked no matter which medication is currently selected. The public
-   * `isScheduling`/`error` signals below key off this (and off
-   * `scheduleFailure`) so that a still-in-flight or just-failed write for a
-   * medication the user has since navigated away from doesn't show its
-   * "Scheduling…"/error against whatever they've switched to instead --
-   * caught by Copilot review on this item's PR. */
-  private readonly schedulingMedicationId = signal<string | null>(null)
-
-  /** Set by pickNextOrderDate() when its Calendar write fails, tagged with
-   * which medication it was for -- see schedulingMedicationId's doc
-   * comment. */
-  private readonly scheduleFailure = signal<{
-    medicationId: string
-    message: string
-  } | null>(null)
+  /** Root-scoped, not a component field: Angular's router destroys this
+   * component on navigating away from Prescriptions, and a component field
+   * would forget a Calendar write still pending from before the user left
+   * -- see CalendarSchedulingService's doc comment (added after Copilot
+   * review on this item's PR caught the component-field version losing the
+   * lock across navigation). */
+  private readonly calendarScheduling = inject(CalendarSchedulingService)
 
   /** True only while a Calendar write is in flight *for the currently
    * selected medication* -- mirrors isDeleting/isRegenerating in
    * MedicationsComponent (see TODO.md #8) as the in-flight indicator, but
-   * see schedulingMedicationId's doc comment for why it's derived rather
-   * than a plain signal. */
+   * see CalendarSchedulingService's doc comment for why the lock itself
+   * lives in a service and why this is derived rather than a plain signal:
+   * a still-in-flight write for a medication the user has since navigated
+   * away from must not show "Scheduling…" against whatever they've
+   * switched to instead. */
   readonly isScheduling = computed(() => {
-    const id = this.schedulingMedicationId()
+    const id = this.calendarScheduling.schedulingMedicationId()
     return id !== null && id === this.selectedId()
   })
 
+  /** True while a Calendar write is in flight for *any* medication --
+   * unlike isScheduling(), not scoped to the current selection. Used to
+   * disable the date picker entirely while true: the single global lock
+   * (see CalendarSchedulingService) means a pick for a different medication
+   * would silently no-op anyway, and a disabled picker says so instead of
+   * looking like the click was accepted (caught by Copilot review on this
+   * item's PR). */
+  readonly isCalendarBusy = computed(
+    () => this.calendarScheduling.schedulingMedicationId() !== null,
+  )
+
   /** The scheduling-failure message for the currently selected medication,
-   * if any -- see schedulingMedicationId's doc comment. */
+   * if any -- see CalendarSchedulingService's doc comment. */
   readonly error = computed(() => {
-    const failure = this.scheduleFailure()
+    const failure = this.calendarScheduling.failure()
     return failure && failure.medicationId === this.selectedId()
       ? failure.message
       : null
@@ -196,7 +196,7 @@ export class PrescriptionsComponent {
         this.selectedId.set(null)
         this.draft = null
         this.draftBaseline = null
-        this.scheduleFailure.set(null)
+        this.calendarScheduling.failure.set(null)
         // A plain field write from a reactive effect (not a template event
         // binding), so it needs an explicit nudge to reach the OnPush view.
         this.changeDetectorRef.markForCheck()
@@ -242,7 +242,7 @@ export class PrescriptionsComponent {
 
   select(medicationId: string): void {
     this.selectedId.set(medicationId)
-    this.scheduleFailure.set(null)
+    this.calendarScheduling.failure.set(null)
     const existing = this.prescriptions().find(
       (p) => p.medicationId === medicationId,
     )
@@ -305,13 +305,17 @@ export class PrescriptionsComponent {
    * threw before any request to googleapis.com/calendar/v3 was made. */
   async pickNextOrderDate(nextOrderDate: DateKey): Promise<void> {
     const medication = this.selectedMedication()
-    if (!medication || !this.draft || this.schedulingMedicationId() !== null) {
+    if (
+      !medication ||
+      !this.draft ||
+      this.calendarScheduling.schedulingMedicationId() !== null
+    ) {
       return
     }
     const medicationId = medication.id
     this.draft = { ...this.draft, nextOrderDate }
-    this.schedulingMedicationId.set(medicationId)
-    this.scheduleFailure.set(null)
+    this.calendarScheduling.schedulingMedicationId.set(medicationId)
+    this.calendarScheduling.failure.set(null)
     try {
       await this.calendarService.scheduleReminder(
         medication,
@@ -319,15 +323,15 @@ export class PrescriptionsComponent {
         this.draft.howToOrder,
       )
     } catch {
-      this.scheduleFailure.set({
+      this.calendarScheduling.failure.set({
         medicationId,
         message: 'Failed to schedule calendar reminder. Please try again.',
       })
     } finally {
       // Only one Calendar write is ever in flight at a time (see
-      // schedulingMedicationId's doc comment), so it's always this call's
-      // own id to release.
-      this.schedulingMedicationId.set(null)
+      // CalendarSchedulingService's doc comment), so it's always this
+      // call's own id to release.
+      this.calendarScheduling.schedulingMedicationId.set(null)
     }
   }
 }
